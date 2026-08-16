@@ -1,0 +1,12 @@
+{
+  "name": "cafepos",
+  "version": "1.0.0",
+  "description": "CafePOS demo",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}

@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CafePOS</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#111827">
+<style>
+:root{--bg:#f3f6fa;--card:#fff;--dark:#111827;--muted:#64748b;--line:#e2e8f0;--green:#059669;--red:#dc2626;--blue:#2563eb;--amber:#d97706}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:#0f172a}
+button,input,select,textarea{font:inherit}button{cursor:pointer;border:0}.hidden{display:none!important}
+header{height:90px;background:var(--dark);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:12px 20px 8px;position:sticky;top:0;z-index:10}.brand{font-weight:800;font-size:21px;display:flex;align-items:center;gap:9px}.brandmark{width:38px;height:38px;border-radius:11px;background:#fff;color:#111827;display:inline-flex;align-items:center;justify-content:center;font-size:21px;box-shadow:0 3px 12px #0003}.userbar{display:flex;align-items:center;gap:12px;font-size:14px}.userpill{background:#1f2937;border:1px solid #334155;border-radius:10px;padding:9px 11px}.iconbtn{background:#273244;color:#fff;border-radius:9px;padding:9px 11px}
+.layout{display:flex;min-height:calc(100vh - 90px)}aside{width:220px;background:#fff;border-right:1px solid var(--line);padding:18px 12px}nav{display:flex;flex-direction:column;gap:6px}nav button{width:100%;padding:13px 10px;border-radius:10px;background:#fff;text-align:center;color:#475569;margin-bottom:0;font-weight:700}nav button.active,nav button:hover{background:#ecfdf5;color:#047857}
+main{flex:1;padding:34px 25px 32px;max-width:1500px;margin:auto;width:100%}.title h1{margin:0;font-size:28px}.title p{color:var(--muted);margin:5px 0 20px}
+.gridstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}.stat,.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}.stat span{color:var(--muted)}.stat b{display:block;font-size:26px;margin-top:7px}
+.tables{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:13px}.table{min-height:115px;border-radius:15px;color:#fff;text-align:left;padding:15px;display:flex;flex-direction:column;gap:7px}.free{background:var(--green)}.busy{background:var(--red)}
+.ordergrid{display:grid;grid-template-columns:1fr 390px;gap:15px}.cats{display:flex;gap:7px;overflow:auto;margin-bottom:15px}.cats button{padding:9px 13px;border-radius:999px;background:#e2e8f0;white-space:nowrap}.cats button.active{background:var(--dark);color:#fff}
+.products{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}.product{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:14px;text-align:left}.product b{display:block}.product span{display:block;color:var(--green);font-weight:800;margin-top:5px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}.row:last-child{border-bottom:0}.row small{display:block;color:var(--muted);margin-top:3px}
+.primary{background:var(--blue);color:#fff;padding:12px 16px;border-radius:10px;font-weight:800}.success{background:var(--green);color:#fff;padding:10px 14px;border-radius:9px;font-weight:800}.danger{background:#fee2e2;color:#991b1b;padding:9px 12px;border-radius:9px;font-weight:700}.secondary{background:#e2e8f0;padding:9px 12px;border-radius:9px;font-weight:700}.warning{background:#fef3c7;color:#92400e;padding:9px 12px;border-radius:9px;font-weight:700}
+.full{width:100%}.back{background:none;color:var(--blue);font-weight:800;margin-bottom:10px}.q{display:flex;gap:7px;align-items:center}.q button{background:#e2e8f0;border-radius:7px;padding:5px}.total{display:flex;justify-content:space-between;border-top:2px solid var(--line);padding-top:15px;margin-top:15px;font-size:20px}
+.stafficon{display:inline-flex;width:34px;height:34px;border-radius:10px;align-items:center;justify-content:center;background:#ecfdf5;color:#047857;font-size:17px;margin-right:10px}.staffhead{display:flex;align-items:center;gap:10px}.staffsection{margin-top:14px}.badge{font-size:11px;padding:4px 8px;border-radius:999px;background:#e2e8f0;font-weight:800}.waiting{background:#fef3c7;color:#92400e}.preparing{background:#dbeafe;color:#1d4ed8}.ready{background:#dcfce7;color:#166534}.activeToggle{background:#dcfce7;color:#166534;padding:7px 10px;border-radius:9px;font-weight:800}.inactiveToggle{background:#fee2e2;color:#991b1b;padding:7px 10px;border-radius:9px;font-weight:800}.done{background:#e0e7ff;color:#3730a3}
+.formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}.field label{display:block;font-size:13px;font-weight:800;margin-bottom:6px}.field input,.field select,.field textarea{width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:9px;background:#fff}.field textarea{min-height:85px;resize:vertical}
+.login{min-height:100vh;display:grid;place-items:center;background:linear-gradient(135deg,#0f172a,#065f46);padding:20px}.loginbox{width:min(420px,100%);background:#fff;padding:30px;border-radius:20px;box-shadow:0 25px 70px #0005}.loginbox h1{text-align:center;margin:0 0 5px}.loginbox p{text-align:center;color:var(--muted);margin:0 0 22px}.loginbox .field{margin:10px 0}.remember{display:flex;gap:8px;align-items:center;font-size:14px;margin:10px 0 15px}.hint{display:none!important}
+.ticket{max-width:900px}.ticket-actions{display:flex;gap:8px;flex-wrap:wrap}.empty{text-align:center;color:#94a3b8;padding:35px;background:#fff;border-radius:15px}
+.detailgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:14px 0}.detailcard{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:14px}.detailcard span{display:block;color:var(--muted);font-size:13px}.detailcard b{display:block;font-size:22px;margin-top:5px}.tablemove{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.statusready{background:#dcfce7;color:#166534}.statuswaiting{background:#fef3c7;color:#92400e}
+
+.modal{position:fixed;inset:0;background:#0007;display:grid;place-items:center;padding:20px;z-index:50}.modalbox{background:#fff;border-radius:16px;padding:22px;width:min(560px,100%);max-height:90vh;overflow:auto}.modalhead{display:flex;justify-content:space-between;align-items:center}.close{background:#e2e8f0;border-radius:8px;padding:7px 10px}
+.checklist{display:grid;gap:8px;margin:8px 0}.check{display:flex;align-items:center;gap:9px;background:#f8fafc;border:1px solid var(--line);padding:10px;border-radius:9px}.check small{color:var(--muted);margin-left:auto}
+.toast{position:fixed;right:18px;bottom:18px;background:#111827;color:#fff;padding:12px 16px;border-radius:10px;z-index:100;box-shadow:0 10px 30px #0004}
+.notice{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;padding:12px;border-radius:10px;margin:12px 0}.notice strong{display:block;margin-bottom:3px}
+@media(max-width:800px){aside{width:70px}aside nav button{font-size:0;text-align:center}aside nav button:first-letter{font-size:20px}.ordergrid{grid-template-columns:1fr}main{padding:14px}}
+@media(max-width:520px){
+header{height:76px;padding:8px 10px}.brand{font-size:17px}.brandmark{width:34px;height:34px;font-size:18px}.userbar{gap:6px}.userpill{padding:7px 8px}.iconbtn{padding:8px 9px}
+.layout{min-height:calc(100vh - 76px)}aside{width:58px;padding:12px 7px}main{padding:16px 10px 24px}.title h1{font-size:22px}.title p{font-size:13px;margin-bottom:14px}
+.tables{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.table{min-height:92px;padding:11px;border-radius:13px}.table strong{font-size:13px}.table small{font-size:11px}
+.products{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.product{padding:11px}.product b{font-size:14px}.product span{font-size:13px}
+.panel,.stat{padding:13px;border-radius:13px}.row{gap:9px}.row>span:first-child{min-width:0}.row small{font-size:11px;overflow-wrap:anywhere}
+.ticket-actions{width:100%;display:grid;grid-template-columns:1fr 1fr}.ticket-actions button{width:100%}
+.staffsection .row{align-items:stretch;flex-direction:column;padding:13px 0}.staffsection .row>.staffhead{width:100%;align-items:center}.staffsection .row>span:last-child{width:100%!important;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px!important}.staffsection .row>span:last-child>*{width:100%;min-width:0;text-align:center}.staffsection .row>span:last-child .badge{display:flex;align-items:center;justify-content:center}.staffhead{gap:8px}.stafficon{width:32px;height:32px;margin-right:0;flex:0 0 auto}.staffsection .staffhead b{font-size:14px}
+.formgrid{grid-template-columns:1fr}.modal{padding:10px}.modalbox{padding:16px;border-radius:14px}.detailgrid{grid-template-columns:1fr 1fr}.cats{margin-bottom:10px}.ordergrid{gap:10px}
+}
+@media print{body *{visibility:hidden!important}.print-ticket,.print-ticket *{visibility:visible!important}.print-ticket{position:absolute;left:0;top:0;width:80mm!important;background:#fff!important;padding:5mm!important}.no-print{display:none!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const KEY="cafepos_html_v12";
+const LEGACY_KEYS=["cafeos_html_v9","cafeos_html_v8","cafeos_html_v7","cafeos_html_v6","cafeos_html_v5","cafeos_html_v4","cafeos_html_v3"];
+const defaultDB={
+users:[
+{id:1,name:"Ahmet (Garson)",username:"ahmet",password:"1234",role:"WAITER",active:true},
+{id:2,name:"Mehmet (Garson)",username:"mehmet",password:"1234",role:"WAITER",active:true},
+{id:3,name:"Ayşe (Garson)",username:"ayse",password:"1234",role:"WAITER",active:true},
+{id:4,name:"Fuat (Garson)",username:"fuat",password:"1234",role:"WAITER",active:true},
+{id:5,name:"Yaren (Barista)",username:"yaren",password:"1234",role:"BARISTA",active:true},
+{id:6,name:"Buse (Barista)",username:"buse",password:"1234",role:"BARISTA",active:true},
+{id:7,name:"Efe (Kasa)",username:"efe",password:"1234",role:"CASHIER",active:true},
+{id:8,name:"Admin",username:"admin",password:"1234",role:"ADMIN",active:true}],
+tables:Array.from({length:25},(_,i)=>({id:i+1,no:i+1})),
+cats:[
+{id:1,name:"Kahveler",products:[
+{id:101,name:"Latte",price:120},{id:102,name:"Americano",price:100},{id:103,name:"Espresso",price:90},{id:104,name:"Cappuccino",price:125},{id:105,name:"Iced Latte",price:135}]},
+{id:2,name:"Soğuk İçecekler",products:[{id:201,name:"Cola",price:70},{id:202,name:"Limonata",price:90},{id:203,name:"Su",price:30}]},
+{id:3,name:"Tatlılar",products:[{id:301,name:"San Sebastian",price:180},{id:302,name:"Cheesecake",price:160},{id:303,name:"Dondurma",price:110}]}],
+modifiers:[{id:1,name:"Ekstra Shot",price:10,categoryIds:[1],active:true}],
+orders:[],nextOrder:1,nextProduct:1000,nextModifier:2,audit:[]};
+let savedRaw=localStorage.getItem(KEY);
+if(!savedRaw) for(const k of LEGACY_KEYS){const r=localStorage.getItem(k);if(r){savedRaw=r;break}}
+let db=JSON.parse(savedRaw||"null")||JSON.parse(JSON.stringify(defaultDB));
+if(!Array.isArray(db.cats))db.cats=JSON.parse(JSON.stringify(defaultDB.cats));
+if(!Array.isArray(db.users)||!db.users.length)db.users=JSON.parse(JSON.stringify(defaultDB.users));
+if(!Array.isArray(db.tables)||!db.tables.length)db.tables=JSON.parse(JSON.stringify(defaultDB.tables));
+if(!Array.isArray(db.orders))db.orders=[];
+if(!db.nextOrder)db.nextOrder=Math.max(0,...db.orders.map(o=>Number(o.id)||0))+1;
+if(!db.nextProduct)db.nextProduct=Math.max(999,...db.cats.flatMap(c=>c.products||[]).map(p=>Number(p.id)||0))+1;
+if(!db.modifiers)db.modifiers=[{id:1,name:"Ekstra Shot",price:10,categoryIds:[1],active:true}];
+if(!db.nextModifier)db.nextModifier=2;
+
+/* v6 personnel migration: first launch creates the requested staff list.
+   After that, deletions and active/inactive changes are persistent. */
+if(!db.staffV6){
+  const oldUsers=Array.isArray(db.users)?db.users:[];
+  const admin=oldUsers.find(u=>u.role==="ADMIN" || u.username==="admin");
+  const byName=new Map(oldUsers.map(u=>[String(u.name||"").replace(/\\s*\\([^)]*\\)\\s*$/,"").trim().toLocaleLowerCase("tr-TR"),u]));
+  const wanted=[
+    ["Ahmet (Garson)","ahmet","WAITER"],["Mehmet (Garson)","mehmet","WAITER"],
+    ["Ayşe (Garson)","ayse","WAITER"],["Fuat (Garson)","fuat","WAITER"],
+    ["Yaren (Barista)","yaren","BARISTA"],["Buse (Barista)","buse","BARISTA"],
+    ["Efe (Kasa)","efe","CASHIER"]
+  ];
+  let nextId=Math.max(0,...oldUsers.map(u=>Number(u.id)||0),...defaultDB.users.map(u=>u.id))+1;
+  const staff=wanted.map(([display,username,role],idx)=>{
+    const base=display.replace(/\\s*\\([^)]*\\)\\s*$/,"").trim().toLocaleLowerCase("tr-TR");
+    const prior=byName.get(base);
+    return {id:prior?.id ?? nextId++,name:display,username,password:prior?.password||"1234",role,active:prior?.active!==false};
+  });
+  const adminUser=admin?{...admin,name:"Admin",username:"admin",role:"ADMIN",active:true}:{id:nextId++,name:"Admin",username:"admin",password:"1234",role:"ADMIN",active:true};
+  db.users=[...staff,adminUser];
+  db.staffV6=true;
+}
+let serverSyncEnabled=location.protocol!=="file:";
+async function save(){localStorage.setItem(KEY,JSON.stringify(db));if(serverSyncEnabled){try{await fetch("/api/state",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(db)});}catch(e){/* local fallback remains available */}}}
+function audit(action,details=""){db.audit.push({id:Date.now()+Math.random(),at:Date.now(),userId:user?.id||null,userName:user?.name||"Sistem",action,details});if(db.audit.length>1000)db.audit=db.audit.slice(-1000);save()}
+function money(n){return Number(n||0).toFixed(2)+" TL"}
+function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+function current(){let id=localStorage.getItem("cafeos_user");return db.users.find(u=>u.id==id&&u.active)||null}
+let user=current(),view=user?(user.role==="ADMIN"?"dashboard":user.role==="BARISTA"?"barista":user.role==="CASHIER"?"cashier":"tables"):"login",selectedTable=null,selectedStaff=null,cart=[],cat=0,toastTimer=null,seenOrderIds=new Set();
+function notify(t){clearTimeout(toastTimer);document.querySelectorAll(".toast").forEach(x=>x.remove());let d=document.createElement("div");d.className="toast";d.textContent=t;document.body.appendChild(d);toastTimer=setTimeout(()=>d.remove(),2600)}
+function activeOrders(){return db.orders.filter(o=>o.status==="ACTIVE")}
+function tableOrder(id){return activeOrders().find(o=>o.tableId==id)}
+function outstandingItems(o){return o.items.map((i,idx)=>({...i,index:idx,remaining:Math.max(0,i.qty-(i.paidQty||0))})).filter(i=>i.remaining>0)}
+function outstandingTotal(o){return outstandingItems(o).reduce((s,i)=>s+i.remaining*i.price,0)}
+function orderDetail(id){const o=db.orders.find(x=>x.id===id);if(!o)return;let d=document.createElement("div");d.className="modal";d.innerHTML=`<div class="modalbox"><div class="modalhead"><h3>Masa ${o.tableId} · Sipariş #${o.id}</h3><button class="close">✕</button></div><p style="color:#64748b">${new Date(o.created).toLocaleString("tr-TR")} · ${esc(db.users.find(u=>u.id===o.waiterId)?.name||"Garson")}</p><div class="checklist">${o.items.map(i=>`<div class="check"><span><b>${i.qty}× ${esc(i.name)}</b><small>${i.mods?.length?i.mods.map(m=>esc(m.name)).join(", "):""}${i.note?" · "+esc(i.note):""}</small></span><strong>${money(i.price*i.qty)}</strong></div>`).join("")}</div><div class="total"><span>Toplam</span><b>${money(o.total)}</b></div></div>`;document.body.appendChild(d);d.querySelector(".close").onclick=()=>d.remove()}
+function logout(){localStorage.removeItem("cafeos_user");user=null;view="login";render()}
+function navItems(){if(user.role==="ADMIN")return [["dashboard","▦ Genel Bakış"],["tables","▦ Masalar"],["barista","☕ Barista"],["cashier","▣ Kasa"],["menu","☕ Menü"],["users","♙ Personel"],["settings","⚙ Ayarlar"]];if(user.role==="BARISTA")return [["barista","☕ Siparişler"],["settings","⚙ Ayarlar"]];if(user.role==="CASHIER")return [["cashier","▣ Kasa"],["settings","⚙ Ayarlar"]];return [["tables","▦ Masalar"],["settings","⚙ Ayarlar"]]}
+function page(){
+ if(view==="dashboard")return dashboard();
+ if(view==="tables")return tables();
+ if(view==="order")return order();
+ if(view==="barista")return barista();
+ if(view==="cashier")return cashier();
+ if(view==="menu")return menu();
+ if(view==="users")return users();
+ if(view==="staffdetail")return staffDetail();
+ if(view==="settings")return settings();
+ return `<div class="empty">Sayfa bulunamadı.</div>`;
+}
+function render(){
+ if(!user){document.getElementById("app").innerHTML=loginHTML();bindLogin();return}
+ document.querySelectorAll(".modal").forEach(m=>m.remove());
+ document.getElementById("app").innerHTML=`<header><div class="brand"><span class="brandmark">☕</span><span>CafePOS</span></div><div class="userbar"><span class="userpill">${esc(user.name)} · ${roleLabel(user.role)}</span><button class="iconbtn" id="logout">⎋ Çıkış</button></div></header><div class="layout"><aside><nav>${navItems().map(([v,t])=>`<button class="${view===v?"active":""}" data-view="${v}">${t}</button>`).join("")}</nav></aside><main>${page()}</main></div>`;
+ document.querySelectorAll("[data-view]").forEach(b=>b.onclick=()=>{view=b.dataset.view;selectedTable=null;render()});
+ document.getElementById("logout").onclick=logout;bindPage();
+}
+function loginHTML(){return `<div class="login"><form class="loginbox" id="loginForm"><div style="text-align:center;font-size:42px">☕</div><h1>CafePOS</h1><p>Kafe sipariş ve operasyon sistemi</p><div class="field"><label>Kullanıcı adı</label><input id="loginUser" autocomplete="username" placeholder="kullanıcı adı" required></div><div class="field"><label>Şifre / PIN</label><input id="loginPass" type="password" autocomplete="current-password" placeholder="şifre" required></div><label class="remember"><input id="remember" type="checkbox"> Beni hatırla</label><button class="primary full">Giriş Yap</button></form></div>`}
+function bindLogin(){document.getElementById("loginForm").onsubmit=e=>{e.preventDefault();let u=db.users.find(x=>x.username.toLowerCase()===document.getElementById("loginUser").value.trim().toLowerCase()&&x.password===document.getElementById("loginPass").value&&x.active);if(!u)return alert("Kullanıcı adı veya şifre hatalı.");user=u;if(document.getElementById("remember").checked)localStorage.setItem("cafeos_user",u.id);view=u.role==="ADMIN"?"dashboard":u.role==="BARISTA"?"barista":u.role==="CASHIER"?"cashier":"tables";render()}}
+function title(t,s){return `<div class="title"><h1>${t}</h1><p>${s}</p></div>`}
+function dashboard(){let done=db.orders.filter(o=>o.status==="COMPLETED"),revenue=done.reduce((s,o)=>s+Number(o.total||0),0),today=new Date().toDateString(),todayOrders=done.filter(o=>new Date(o.completed||o.created).toDateString()===today),todayRevenue=todayOrders.reduce((s,o)=>s+Number(o.total||0),0),counts={};done.flatMap(o=>o.items).forEach(i=>counts[i.name]=(counts[i.name]||0)+i.qty);let best=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5),recent=db.orders.slice().sort((a,b)=>b.created-a.created).slice(0,10);return title("Genel Bakış","CafePOS operasyon özeti")+`<div class="gridstats"><div class="stat"><span>Masalar</span><b>${db.tables.length}</b></div><div class="stat"><span>Aktif Hesap</span><b>${activeOrders().length}</b></div><div class="stat"><span>Bugünkü Ciro</span><b>${money(todayRevenue)}</b></div><div class="stat"><span>Toplam Ciro</span><b>${money(revenue)}</b></div></div><section class="panel" style="margin-top:15px"><h3>En Çok Satanlar</h3>${best.map(x=>`<div class="row"><span>${esc(x[0])}</span><b>${x[1]} adet</b></div>`).join("")||`<div class="empty">Henüz tamamlanmış sipariş yok.</div>`}</section><section class="panel" style="margin-top:15px"><div class="row"><span><h3 style="margin:0">Son Siparişler</h3><small>Detaydan ürünleri ve sipariş akışını görebilirsin.</small></span></div>${recent.map(o=>`<div class="row"><span><b>#${o.id} · Masa ${o.tableId}</b><small>${new Date(o.created).toLocaleString("tr-TR")}</small></span><strong>${money(o.total)}</strong><span style="display:flex;gap:7px;align-items:center"><span class="badge">${o.status}</span><button class="secondary" data-orderdetail="${o.id}">Detaylar</button></span></div>`).join("")||`<div class="empty">Henüz sipariş yok.</div>`}</section><section class="panel" style="margin-top:15px"><h3>Son İşlemler</h3>${db.audit.slice().sort((a,b)=>b.at-a.at).slice(0,8).map(a=>`<div class="row"><span><b>${esc(a.action)}</b><small>${esc(a.userName)} · ${new Date(a.at).toLocaleString("tr-TR")}${a.details?" · "+esc(a.details):""}</small></span></div>`).join("")||`<div class="empty">Henüz işlem kaydı yok.</div>`}</section>`}
+function tables(){return title("Masalar",user.role==="ADMIN"?"Masa sayısını ve açık hesapları yönet":"Sipariş almak veya açık hesaba ürün eklemek için masa seç")+(user.role==="ADMIN"?`<section class="panel" style="margin-bottom:15px"><div class="row"><span><b>Masa Yönetimi</b><small>${db.tables.length} aktif masa</small></span><span style="display:flex;gap:8px"><button class="secondary" id="removeTable">− Masa Sil</button><button class="primary" id="addTable">＋ Masa Ekle</button></span></div></section>`:"")+`<div class="tables">${db.tables.map(t=>{let o=tableOrder(t.id);return `<button class="table ${o?"busy":"free"}" data-table="${t.id}"><b>Masa ${t.no}</b><strong>${o?money(outstandingTotal(o)):"Boş"}</strong><small>${o?"Açık hesap · ürün ekle":"Sipariş al"}</small></button>`}).join("")}</div>`}
+function order(){
+ let products=db.cats.flatMap(c=>c.products.map(p=>({...p,cat:c.id}))).filter(p=>!cat||p.cat==cat),
+ total=cart.reduce((s,x)=>s+x.price*x.qty,0),
+ existing=tableOrder(selectedTable.id);
+ return `<button class="back" id="backTables">← Masalara dön</button>
+ ${title("Masa "+selectedTable.no,existing?"Açık hesaba yeni ürün ekliyorsun":"Yeni sipariş oluştur")}
+ ${existing?`<section class="panel" style="margin-bottom:15px"><div class="row"><span><b>Açık Hesap · Masa ${existing.tableId}</b><small>${existing.items.map(i=>i.qty+"× "+esc(i.name)).join(", ")}</small></span><span style="display:flex;align-items:center;gap:10px"><strong>${money(outstandingTotal(existing))}</strong><button type="button" class="secondary" id="moveTable">↔ Masa Değiştir</button></span></div></section>`:""}
+ <div class="ordergrid"><section class="panel"><div class="cats"><button class="${!cat?"active":""}" data-cat="0">Tümü</button>${db.cats.map(c=>`<button class="${cat==c.id?"active":""}" data-cat="${c.id}">${esc(c.name)}</button>`).join("")}</div><div class="products">${products.map(p=>{const ex=(db.modifiers||[]).filter(m=>m.active&&m.categoryIds.includes(p.cat));return `<button type="button" class="product" data-product="${p.id}"><b>${esc(p.name)}</b><span>${money(p.price)}</span>${ex.length?`<small style="display:block;color:#64748b;margin-top:6px">＋ ${ex.map(m=>esc(m.name)).join(", ")}</small>`:""}</button>`}).join("")}</div></section>
+ <section class="panel"><h3>${existing?"Yeni Eklenecekler":"Sepet"}</h3>${cart.map((i,idx)=>`<div class="row"><span><b>${i.qty}× ${esc(i.name)}</b><small>${i.mods?.length?i.mods.map(m=>esc(m.name)).join(", ")+" · ":""}${i.note?esc(i.note):"Not yok"}</small></span><div class="q"><button data-minus="${idx}">−</button><b>${money(i.price*i.qty)}</b><button data-plus="${idx}">+</button><button class="danger" data-remove="${idx}">×</button></div></div>`).join("")||`<div style="color:#94a3b8;padding:15px 0">${existing?"Henüz yeni ürün seçilmedi.":"Sepet boş"}</div>`}
+ <div class="total"><span>${existing?"Eklenecek toplam":"Toplam"}</span><b>${money(total)}</b></div><button class="primary full" id="sendOrder" ${cart.length?"":"disabled"}>${existing?"EK SİPARİŞİ GÖNDER":"SİPARİŞİ GÖNDER"}</button></section></div>`;
+}
+function barista(){let open=activeOrders().map(o=>({...o,pending:o.items.filter(i=>i.status!=="READY")})).filter(o=>o.pending.length);return title("Barista / Mutfak","Bekleyen ürünleri hazırla. Hazır olan ürünler kuyruktan çıkar, kasa hesabı açık kalır.")+`<div class="notice"><strong>🖨 Yazıcı akışı</strong>Yeni siparişlerde yalnızca bekleyen ürünlerin fişi basılır. Gerçek termal yazıcı için yazıcı ajanı kullanılabilir.</div>`+open.map(o=>`<section class="panel ticket" id="ticket-${o.id}"><div class="row"><span><b>MASA ${o.tableId} · #${o.id}</b><small>${new Date(o.created).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"})} · ${esc(db.users.find(u=>u.id===o.waiterId)?.name||"Garson")}</small></span><div class="ticket-actions"><button class="secondary" data-print="${o.id}">🖨 Fiş Yazdır</button><button class="success" data-allready="${o.id}">✓ Tümünü Hazır</button></div></div>${o.pending.map(i=>{const n=o.items.indexOf(i);return `<div class="row"><span><b>${i.qty}× ${esc(i.name)}</b><small>${i.mods?.length?"+"+i.mods.map(m=>esc(m.name)).join(" · "):""}${i.note?" · NOT: "+esc(i.note):""}</small></span><span style="display:flex;align-items:center;gap:8px"><span class="badge waiting">WAITING</span><button class="success" style="padding:6px 9px" data-ready="${o.id}" data-item="${n}">Hazır</button></span></div>`}).join("")}</section>`).join("")||`<div class="empty">Bekleyen sipariş yok.</div>`}
+function cashier(){let open=activeOrders(),total=open.reduce((s,o)=>s+outstandingTotal(o),0);return title("Kasa","Masaların hesabını tamamen veya kişi bazında kapat")+`<div class="gridstats"><div class="stat"><span>Aktif Hesap</span><b>${open.length}</b></div><div class="stat"><span>Ödenecek Tutar</span><b>${money(total)}</b></div></div>`+open.map(o=>`<section class="panel" style="margin-top:12px"><div class="row"><span><b>Masa ${o.tableId} · #${o.id}</b><small>${o.items.map(i=>{let r=i.qty-(i.paidQty||0);return r>0?r+"× "+esc(i.name):""}).filter(Boolean).join(", ")||"Ödeme tamamlanıyor"}</small></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><strong>${money(outstandingTotal(o))}</strong><button class="secondary" data-paydetail="${o.id}">Detaylı Öde</button><button class="success" data-close="${o.id}">Hesabı Kapat</button></span></div></section>`).join("")||`<div class="empty">Açık hesap yok.</div>`}
+function menu(){if(user.role!=="ADMIN")return `<div class="empty">Bu bölümü yalnızca admin kullanabilir.</div>`;let mods=db.modifiers||[];return title("Ürünler","Ürün, kategori, fiyat ve sipariş ekstralarını yönet")+`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:15px"><button type="button" class="primary" id="addProduct">＋ Ürün Ekle</button><button type="button" class="secondary" id="addCat">＋ Kategori Ekle</button></div>`+db.cats.map(c=>`<section class="panel" style="margin-bottom:12px"><div class="row"><h3 style="margin:0">${esc(c.name)}</h3><span><button type="button" class="secondary" data-editcat="${c.id}">Kategori Düzenle</button> <button type="button" class="danger" data-deletecat="${c.id}">Sil</button></span></div>${c.products.map(p=>`<div class="row"><span><b>${esc(p.name)}</b><small>${money(p.price)}</small></span><span style="display:flex;gap:7px"><button type="button" class="secondary" data-edit="${p.id}">Düzenle</button><button type="button" class="danger" data-delete="${p.id}">Sil</button></span></div>`).join("")||`<small>Bu kategoride ürün yok.</small>`}</section>`).join("")+`<section class="panel" style="margin-top:15px"><div class="row"><span><h3 style="margin:0">Ürün Ekstraları</h3><small>Garson sipariş alırken ürün seçtiğinde burada tanımlı ekstraları görecek.</small></span><button type="button" class="primary" id="addModifier">＋ Ekstra Ekle</button></div>${mods.map(m=>`<div class="row"><span><b>${esc(m.name)} · +${money(m.price)}</b><small>${m.categoryIds.map(id=>esc(db.cats.find(c=>c.id===id)?.name||"")).filter(Boolean).join(", ")||"Kategori seçilmedi"}</small></span><span style="display:flex;gap:7px"><span class="badge ${m.active?"ready":""}">${m.active?"AKTİF":"PASİF"}</span><button type="button" class="secondary" data-editmod="${m.id}">Düzenle</button><button type="button" class="danger" data-deletemod="${m.id}">Sil</button></span></div>`).join("")||`<div class="empty">Henüz ekstra tanımlanmadı.</div>`}</section>`}
+function roleLabel(role){return role==="WAITER"?"Garson":role==="BARISTA"?"Barista":role==="CASHIER"?"Kasa":"Admin"}
+function roleIcon(role){return role==="WAITER"?"🧑‍🍳":role==="BARISTA"?"☕":role==="CASHIER"?"💳":"👑"}
+function users(){
+ if(user.role!=="ADMIN")return `<div class="empty">Bu bölümü yalnızca admin kullanabilir.</div>`;
+ const groups=[["WAITER","Garsonlar"],["BARISTA","Baristalar"],["CASHIER","Kasa"],["ADMIN","Yönetici"]];
+ const content=groups.map(([role,label])=>{
+   const list=db.users.filter(u=>u.role===role).sort((a,b)=>a.id-b.id);
+   if(!list.length)return "";
+   return `<section class="panel staffsection"><div class="staffhead"><span class="stafficon">${roleIcon(role)}</span><div><h3 style="margin:0">${label}</h3><small style="color:#64748b">${list.length} personel</small></div></div>
+   ${list.map(u=>`<div class="row staff-row">
+     <span class="staffhead"><span class="stafficon" style="width:30px;height:30px;font-size:15px">${roleIcon(u.role)}</span><span><b>${esc(u.name)}</b><small>Kullanıcı adı: @${esc(u.username)} · ${roleLabel(u.role)} yetkisi</small></span></span>
+     <span style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
+       ${u.role!=="ADMIN"?`<button type="button" class="${u.active?"activeToggle":"inactiveToggle"}" data-toggleuser="${u.id}">${u.active?"AKTİF":"İN AKTİF"}</button><button class="secondary" data-staffdetail="${u.id}">Detaylar</button><button class="secondary" data-edituser="${u.id}">Düzenle</button><button class="danger" data-deleteuser="${u.id}">Sil</button>`:`<span class="badge ready">AKTİF</span><span class="badge">YÖNETİCİ</span><button class="secondary" data-staffdetail="${u.id}">Detaylar</button>`}
+     </span>
+   </div>`).join("")}</section>`;
+ }).join("");
+ return title("Personel","Personel hesapları, görevleri ve aktiflik durumu")+`<section class="panel"><div class="row"><span><b>Personel Yönetimi</b><small>Aktiflik için doğrudan yeşil/kırmızı butona bas. Admin hesabı silinemez veya pasifleştirilemez.</small></span><button class="primary" id="addUser">＋ Personel Ekle</button></div></section>`+content;
+}function staffDetail(){
+ if(user.role!=="ADMIN"||!selectedStaff)return `<div class="empty">Personel bulunamadı.</div>`;
+ const u=db.users.find(x=>x.id===selectedStaff); if(!u)return `<div class="empty">Personel bulunamadı.</div>`;
+ const now=new Date(), start=new Date(now.getFullYear(),now.getMonth(),1), end=new Date(now.getFullYear(),now.getMonth()+1,1);
+ const inRange=o=>{const d=new Date(o.created);return d>=start&&d<end};
+ const orders=db.orders.filter(inRange);
+ const waiterOrders=orders.filter(o=>o.waiterId===u.id);
+ const prepared=orders.filter(o=>o.preparedBy===u.id);
+ const closed=orders.filter(o=>o.closedBy===u.id);
+ const relevant=u.role==="WAITER"?waiterOrders:u.role==="BARISTA"?prepared:closed;
+ const itemCount=relevant.reduce((sum,o)=>sum+o.items.reduce((a,i)=>a+i.qty,0),0);
+ const revenue=relevant.reduce((sum,o)=>sum+Number(o.total||0),0);
+ return `<button class="back" id="backUsers">← Personele dön</button>${title(u.name+" · Personel Detayı",roleLabel(u.role)+" performans özeti")}
+ <section class="panel"><div class="row"><span><b>${esc(u.name)}</b><small>@${esc(u.username)} · ${roleLabel(u.role)} · ${u.active?"Aktif":"İnaktif"}</small></span><span class="badge ${u.active?"ready":""}">${u.active?"AKTİF":"İN AKTİF"}</span></div></section>
+ <div class="detailgrid">
+ <div class="detailcard"><span>Dönem</span><b>${start.toLocaleDateString("tr-TR")} – ${new Date(end-1).toLocaleDateString("tr-TR")}</b></div>
+ <div class="detailcard"><span>Sipariş sayısı</span><b>${relevant.length}</b></div>
+ <div class="detailcard"><span>Ürün adedi</span><b>${itemCount}</b></div>
+ <div class="detailcard"><span>İlgili ciro</span><b>${money(revenue)}</b></div>
+ </div>
+ <section class="panel"><h3>Bu Ayın Siparişleri</h3>${relevant.slice().sort((a,b)=>b.created-a.created).map(o=>`<div class="row"><span><b>#${o.id} · Masa ${o.tableId}</b><small>${new Date(o.created).toLocaleString("tr-TR")} · ${o.items.map(i=>i.qty+"× "+esc(i.name)).join(", ")}</small></span><strong>${money(o.total)}</strong></div>`).join("")||`<div class="empty">Bu dönemde kayıt yok.</div>`}</section>`;
+}
+function settings(){return title("Ayarlar","Hesabını ve CafePOS tercihlerini yönet")+`<section class="panel"><h3>Şifre Değiştir</h3><form id="passForm"><div class="formgrid"><div class="field"><label>Mevcut şifre</label><input type="password" id="oldPass" required></div><div class="field"><label>Yeni şifre</label><input type="password" id="newPass" minlength="4" required></div><div class="field"><label>Yeni şifre tekrar</label><input type="password" id="newPass2" minlength="4" required></div></div><button type="submit" class="primary" style="margin-top:15px">Şifreyi Değiştir</button></form></section><section class="panel" style="margin-top:15px"><h3>Oturum</h3><p style="color:#64748b">“Beni hatırla” seçildiğinde bu cihazdaki oturum korunur. Çıkış yaptığında kaldırılır.</p><button type="button" class="danger" id="settingsLogout">Hesaptan Çıkış Yap</button></section>`}
+function bindPage(){
+ document.querySelectorAll("[data-table]").forEach(b=>b.onclick=()=>{selectedTable=db.tables.find(t=>t.id==b.dataset.table);let o=tableOrder(selectedTable.id);cat=0;cart=[];view="order";render()});
+ let back=document.getElementById("backTables");if(back)back.onclick=()=>{view="tables";render()};
+ document.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>{cat=Number(b.dataset.cat);render()});
+ document.querySelectorAll("[data-product]").forEach(b=>b.onclick=()=>{const p=db.cats.flatMap(c=>c.products.map(x=>({...x,cat:c.id}))).find(x=>x.id===Number(b.dataset.product));if(p)addToCartWithOptions(p)});
+ document.querySelectorAll("[data-minus]").forEach(b=>b.onclick=()=>{let i=cart[Number(b.dataset.minus)];if(i)i.qty--;cart=cart.filter(x=>x.qty>0);render()});
+ document.querySelectorAll("[data-plus]").forEach(b=>b.onclick=()=>{let i=cart[Number(b.dataset.plus)];if(i)i.qty++;render()});
+ document.querySelectorAll("[data-remove]").forEach(b=>b.onclick=()=>{cart.splice(Number(b.dataset.remove),1);render()});
+ let send=document.getElementById("sendOrder");if(send)send.onclick=sendOrder;
+ document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>closeOrder(Number(b.dataset.close)));
+ document.querySelectorAll("[data-allready]").forEach(b=>b.onclick=()=>{let o=db.orders.find(x=>x.id==b.dataset.allready);if(o){o.items.forEach(i=>i.status="READY");o.kitchenCompleted=true;o.preparedBy=user.id;o.preparedAt=Date.now();audit("Sipariş hazırlandı","Sipariş #"+o.id+" · Masa "+o.tableId);render();notify("Sipariş hazırlandı. Kasadaki açık hesap korunuyor.")}});
+ document.querySelectorAll("[data-ready]").forEach(b=>b.onclick=()=>{let o=db.orders.find(x=>x.id==b.dataset.ready);if(!o)return;let i=o.items[Number(b.dataset.item)];if(i)i.status="READY";if(o.items.every(x=>x.status==="READY")){o.kitchenCompleted=true;o.preparedBy=user.id;o.preparedAt=Date.now();audit("Sipariş hazırlandı","Sipariş #"+o.id+" · Masa "+o.tableId)}else audit("Ürün hazırlandı","Sipariş #"+o.id+" · "+i.name);save();render();notify("Ürün hazır olarak işaretlendi.")});
+ document.querySelectorAll("[data-print]").forEach(b=>b.onclick=()=>printTicket(Number(b.dataset.print)));
+ let mt=document.getElementById("moveTable");if(mt)mt.onclick=()=>transferTableModal();
+ let at=document.getElementById("addTable");if(at)at.onclick=addTable;let rt=document.getElementById("removeTable");if(rt)rt.onclick=removeTable;
+ document.querySelectorAll("[data-orderdetail]").forEach(b=>b.onclick=()=>orderDetail(Number(b.dataset.orderdetail)));
+ document.querySelectorAll("[data-paydetail]").forEach(b=>b.onclick=()=>paymentModal(Number(b.dataset.paydetail)));
+ document.querySelectorAll("[data-staffdetail]").forEach(b=>b.onclick=()=>{selectedStaff=Number(b.dataset.staffdetail);view="staffdetail";render()});
+ let bu=document.getElementById("backUsers");if(bu)bu.onclick=()=>{selectedStaff=null;view="users";render()};
+ let pf=document.getElementById("passForm");if(pf)pf.onsubmit=changePassword;
+ let sl=document.getElementById("settingsLogout");if(sl)sl.onclick=logout;
+ let ap=document.getElementById("addProduct");if(ap)ap.onclick=()=>productModal();
+ let ac=document.getElementById("addCat");if(ac)ac.onclick=()=>categoryModal();
+ let au=document.getElementById("addUser");if(au)au.onclick=()=>userModal();
+ let am=document.getElementById("addModifier");if(am)am.onclick=()=>modifierModal();
+ document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>productModal(Number(b.dataset.edit)));
+ document.querySelectorAll("[data-delete]").forEach(b=>b.onclick=()=>deleteProduct(Number(b.dataset.delete)));
+ document.querySelectorAll("[data-editcat]").forEach(b=>b.onclick=()=>categoryModal(Number(b.dataset.editcat)));
+ document.querySelectorAll("[data-deletecat]").forEach(b=>b.onclick=()=>deleteCategory(Number(b.dataset.deletecat)));
+ document.querySelectorAll("[data-edituser]").forEach(b=>b.onclick=()=>userModal(Number(b.dataset.edituser)));
+  document.querySelectorAll("[data-toggleuser]").forEach(b=>b.onclick=()=>toggleUser(Number(b.dataset.toggleuser)));
+  document.querySelectorAll("[data-deleteuser]").forEach(b=>b.onclick=()=>deleteUser(Number(b.dataset.deleteuser)));
+ document.querySelectorAll("[data-editmod]").forEach(b=>b.onclick=()=>modifierModal(Number(b.dataset.editmod)));
+ document.querySelectorAll("[data-deletemod]").forEach(b=>b.onclick=()=>deleteModifier(Number(b.dataset.deletemod)));
+}
+function productModal(editId,productId){
+ let found=editId?db.cats.flatMap(c=>c.products).find(p=>p.id===editId):db.cats.flatMap(c=>c.products).find(p=>p.id===productId);
+ if(!found&&productId==null&&editId==null)found=null;
+ let originalCat=found?db.cats.find(c=>c.products.some(p=>p.id===found.id))?.id:db.cats[0]?.id;
+ let cats=db.cats.map(c=>`<option value="${c.id}" ${originalCat==c.id?"selected":""}>${esc(c.name)}</option>`).join("");
+ let available=(db.modifiers||[]).filter(m=>m.active&&m.categoryIds.includes(Number(originalCat)));
+ let d=document.createElement("div");d.className="modal";d.innerHTML=`<div class="modalbox"><div class="modalhead"><h3>${found?"Ürünü Düzenle":"Ürün Ekle"}</h3><button type="button" class="close">✕</button></div><form id="productForm"><div class="field"><label>Ürün adı</label><input id="pn" value="${found?esc(found.name):""}" required></div><div class="field"><label>Fiyat (TL)</label><input id="pp" type="number" min="0" step="0.01" value="${found?found.price:""}" required></div><div class="field"><label>Kategori</label><select id="pc">${cats}</select></div><button type="submit" class="primary full" style="margin-top:15px">${found?"Kaydet":"Ürünü Ekle"}</button></form><small style="display:block;color:#64748b;margin-top:10px">Ekstralar ürün sipariş edilirken seçilir; kategoriye göre otomatik gösterilir.</small></div>`;document.body.appendChild(d);d.querySelector(".close").onclick=()=>d.remove();d.querySelector("form").onsubmit=e=>{e.preventDefault();let name=document.getElementById("pn").value.trim(),price=Number(document.getElementById("pp").value),cid=Number(document.getElementById("pc").value);if(found){found.name=name;found.price=price;let old=db.cats.find(c=>c.products.some(p=>p.id===found.id));if(old&&old.id!==cid){old.products=old.products.filter(p=>p.id!==found.id);db.cats.find(c=>c.id===cid).products.push(found)}}else db.cats.find(c=>c.id===cid).products.push({id:db.nextProduct++,name,price});save();d.remove();render();notify(found?"Ürün güncellendi.":"Ürün eklendi.")}}
+function addToCartWithOptions(p){
+ let mods=(db.modifiers||[]).filter(m=>m.active&&m.categoryIds.includes(p.cat));
+ if(!mods.length){
+   let same=cart.find(i=>i.productId===p.id&&(i.mods||[]).length===0&&(i.note||"")==="");
+   if(same)same.qty++; else cart.push({productId:p.id,name:p.name,price:p.price,qty:1,status:"WAITING",mods:[],note:""});
+   render();return
+ }
+ let d=document.createElement("div");d.className="modal";d.innerHTML=`<div class="modalbox"><div class="modalhead"><h3>${esc(p.name)}</h3><button type="button" class="close">✕</button></div><p style="color:#64748b">Ürün seçeneklerini belirle.</p><div class="checklist">${mods.map(m=>`<label class="check"><input type="checkbox" data-mod="${m.id}"> <b>${esc(m.name)}</b><small>+${money(m.price)}</small></label>`).join("")}</div><div class="field"><label>Garson notu</label><textarea id="itemNote" placeholder="Örn: az şeker, buzsuz, süt ayrı..."></textarea></div><button type="button" class="primary full" id="addConfigured">Sepete Ekle</button></div>`;document.body.appendChild(d);d.querySelector(".close").onclick=()=>d.remove();d.querySelector("#addConfigured").onclick=()=>{let selected=mods.filter(m=>d.querySelector(`[data-mod="${m.id}"]`).checked),extra=selected.reduce((s,m)=>s+m.price,0),note=d.querySelector("#itemNote").value.trim();let same=cart.find(i=>i.productId===p.id&&JSON.stringify(i.mods||[])===JSON.stringify(selected)&&i.note===note);if(same)same.qty++;else cart.push({productId:p.id,name:p.name,price:p.price+extra,basePrice:p.price,qty:1,status:"WAITING",mods:selected,note});d.remove();render()}}
+function transferTableModal(){
+ const o=selectedTable&&tableOrder(selectedTable.id); if(!o)return alert("Bu masada açık hesap yok.");
+ const targets=db.tables.filter(t=>t.id!==o.tableId);
+ let d=document.createElement("div");d.className="modal";
+ d.innerHTML=`<div class="modalbox"><div class="modalhead"><h3>Masa Değiştir</h3><button type="button" class="close">✕</button></div>
+ <p style="color:#64748b">Masa ${o.tableId} hesabını hangi masaya taşıyalım?</p>
+ <div class="checklist">${targets.map(t=>{const busy=!!tableOrder(t.id);return `<label class="check"><input type="radio" name="targetTable" value="${t.id}" ${!busy?"":"disabled"}> <b>Masa ${t.no}</b><small>${busy?"Dolu":"Boş"}</small></label>`}).join("")}</div>
+ <button type="button" class="primary full" id="confirmMove">Hesabı Taşı</button></div>`;
+ document.body.appendChild(d);d.querySelector(".close").onclick=()=>d.remove();
+ d.querySelector("#confirmMove").onclick=()=>{const target=d.querySelector('input[name="targetTable"]:checked');if(!target)return alert("Önce boş bir masa seç.");const tid=Number(target.value);if(tableOrder(tid))return alert("Bu masa artık dolu.");const oldTable=o.tableId;confirmModal("Hesabı Taşı","Masa "+oldTable+" hesabı Masa "+tid+" konumuna taşınacak.","Hesabı Taşı",false).then(async ok=>{if(!ok)return;o.tableId=tid;await save();audit("Masa değiştirildi","Masa "+oldTable+" → Masa "+tid);await save();selectedTable=db.tables.find(t=>t.id===tid);d.remove();render();notify("Hesap Masa "+tid+" olarak taşındı.")})};
+}
+function sendOrder(){if(!selectedTable||!cart.length)return;let total=cart.reduce((s,i)=>s+i.price*i.qty,0),o=tableOrder(selectedTable.id),batchId=Date.now()+"-"+Math.random().toString(36).slice(2),newItems=cart.map(i=>({...i,status:"WAITING",paidQty:0,batchId,sentAt:Date.now()}));if(o){o.items.push(...newItems);o.total+=total;o.kitchenCompleted=false}else db.orders.push({id:db.nextOrder++,tableId:selectedTable.id,waiterId:user.id,status:"ACTIVE",total,created:Date.now(),items:newItems,kitchenCompleted:false,payments:[]});audit(o?"Ek sipariş gönderildi":"Sipariş oluşturuldu","Masa "+selectedTable.id+" · "+money(total));cart=[];notify("Sipariş gönderildi. Mutfak fişi kuyruğa eklendi.");view="tables";selectedTable=null;render()}
+function paymentModal(id){let o=db.orders.find(x=>x.id===id);if(!o||o.status!=="ACTIVE")return;let d=document.createElement("div");d.className="modal";const renderPay=()=>{const rows=outstandingItems(o);d.querySelector(".paymentRows").innerHTML=rows.map(i=>`<div class="check"><input type="number" min="0" max="${i.remaining}" value="0" data-payidx="${i.index}" style="width:72px;padding:8px;border:1px solid #cbd5e1;border-radius:8px"><span><b>${i.remaining}× ${esc(i.name)}</b><small>Kalan · ${money(i.price)} / adet</small></span><strong>${money(i.remaining*i.price)}</strong></div>`).join("")||`<div class="empty">Bu hesap tamamen ödenmiş.</div>`};d.innerHTML=`<div class="modalbox"><div class="modalhead"><h3>Masa ${o.tableId} · Ödeme</h3><button class="close">✕</button></div><p style="color:#64748b">İstersen ürünleri kişi kişi kapat. Aynı üründen istediğin adedi seçebilirsin.</p><div class="paymentRows"></div><div class="total"><span>Seçilen</span><b id="paySelected">0.00 TL</b></div><div class="formgrid" style="margin-top:12px"><div class="field"><label>Ödeme yöntemi</label><select id="payMethod"><option>Nakit</option><option>Kart</option><option>Diğer</option></select></div></div><button class="primary full" id="confirmPartial" style="margin-top:15px">Seçilenleri Öde</button><button class="success full" id="confirmAll" style="margin-top:8px">Kalanın Tamamını Öde</button></div>`;document.body.appendChild(d);d.querySelector(".close").onclick=()=>d.remove();renderPay();const recalc=()=>{let sum=[...d.querySelectorAll("[data-payidx]")].reduce((s,x)=>{let i=o.items[Number(x.dataset.payidx)];return s+Math.min(Number(x.value)||0,Math.max(0,i.qty-(i.paidQty||0)))*i.price},0);d.querySelector("#paySelected").textContent=money(sum)};d.addEventListener("input",e=>{if(e.target.matches("[data-payidx]"))recalc()});const finish=({all=false}={})=>{let selected={};if(all){outstandingItems(o).forEach(i=>selected[i.index]=i.remaining)}else d.querySelectorAll("[data-payidx]").forEach(x=>{let n=Math.max(0,Math.floor(Number(x.value)||0));if(n)selected[Number(x.dataset.payidx)]=n});if(!Object.keys(selected).length&&!all)return alert("Ödenecek ürün seç.");let amount=Object.entries(selected).reduce((s,[idx,q])=>{const i=o.items[Number(idx)];return s+Math.min(q,i.qty-(i.paidQty||0))*i.price},0);confirmModal(all?"Hesabı Kapat":"Ödemeyi Onayla",all?"Masa "+o.tableId+" hesabının kalan "+money(amount)+" tutarı tamamen ödenecek.":money(amount)+" tutarında ödeme alınacak.",all?"Hesabı Kapat":"Ödemeyi Al",false).then(ok=>{if(!ok)return;Object.entries(selected).forEach(([idx,q])=>{const i=o.items[Number(idx)];const remain=i.qty-(i.paidQty||0);const n=Math.min(q,remain);i.paidQty=(i.paidQty||0)+n});o.payments=o.payments||[];o.payments.push({at:Date.now(),by:user.id,method:d.querySelector("#payMethod").value,amount});if(outstandingTotal(o)<=0.005){o.status="COMPLETED";o.completed=Date.now();o.closedBy=user.id;o.closedAt=Date.now();audit("Hesap kapatıldı","Masa "+o.tableId+" · "+money(o.total));d.remove();render();notify("Masa "+o.tableId+" hesabı tamamen ödendi.")}else{audit("Parçalı ödeme alındı","Masa "+o.tableId+" · "+money(amount));d.remove();render();notify(money(amount)+" ödeme alındı. Kalan: "+money(outstandingTotal(o)))}})};d.querySelector("#confirmPartial").onclick=()=>finish();d.querySelector("#confirmAll").onclick=()=>finish({all:true})}
+function closeOrder(id){paymentModal(id)}
+async function printTicket(id){let o=db.orders.find(x=>x.id===id);if(!o)return;let items=o.items.filter(i=>i.status!=="READY");if(!items.length)items=o.items.slice();const payload={id:o.id,tableId:o.tableId,waiterName:db.users.find(u=>u.id===o.waiterId)?.name||"Garson",items};if(serverSyncEnabled){try{const r=await fetch("/api/print/barista",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});if(r.ok){audit("Fiş yazdırıldı","Ağ yazıcısı · Sipariş #"+o.id);notify("Fiş yazıcıya gönderildi.");return}}catch(e){}}let w=window.open("","_blank","width=420,height=700");if(!w){alert("Yazdırma penceresi engellendi. Tarayıcıdan açılır pencereye izin ver.");return}w.document.write(`<html><head><title>CafePOS Fiş #${o.id}</title><style>body{font-family:monospace;width:72mm;margin:0;padding:5mm}h2{text-align:center;margin:0 0 8px}.line{border-top:1px dashed #000;margin:8px 0;padding-top:8px}.item{font-size:17px;font-weight:bold;margin:7px 0}.sub{font-size:13px;margin-left:4px}</style></head><body><h2>CAFEPOS</h2><div style="font-size:22px;font-weight:bold">MASA ${o.tableId}</div><div>Sipariş: #${o.id}</div><div class="line"></div>${items.map(i=>`<div class="item">${i.qty} x ${esc(i.name)}</div>${i.mods?.map(m=>`<div class="sub">+ ${esc(m.name)} (+${money(m.price)})</div>`).join("")||""}${i.note?`<div class="sub">NOT: ${esc(i.note)}</div>`:""}`).join("")}<div class="line"></div><div>${new Date().toLocaleString("tr-TR")}</div><script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();audit("Fiş yazdırıldı","Tarayıcı · Sipariş #"+o.id)}
+function changePassword(e){e.preventDefault();let old=document.getElementById("oldPass").value,n=document.getElementById("newPass").value,n2=document.getElementById("newPass2").value;if(user.password!==old)return alert("Mevcut şifre yanlış.");if(n!==n2)return alert("Yeni şifreler eşleşmiyor.");user.password=n;db.users.find(x=>x.id===user.id).password=n;save();document.getElementById("passForm").reset();notify("Şifre başarıyla değiştirildi.")}
+function confirmModal(titleText,message,confirmText="Onayla",danger=true){return new Promise(resolve=>{let d=document.createElement("div");d.className="modal";d.innerHTML=`<div class="modalbox"><div class="modalhead"><h3>${esc(titleText)}</h3><button class="close">✕</button></div><p style="font-size:17px;font-weight:700">${esc(message)}</p><p style="color:#64748b">Bu işlemi yapmak istediğinizden emin misiniz?</p><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px"><button class="secondary" id="cancelConfirm">İptal</button><button class="${danger?"danger":"primary"}" id="okConfirm">${esc(confirmText)}</button></div></div>`;document.body.appendChild(d);const done=v=>{d.remove();resolve(v)};d.querySelector(".close").onclick=()=>done(false);d.querySelector("#cancelConfirm").onclick=()=>done(false);d.querySelector("#okConfirm").onclick=()=>done(true)})}
+function addTable(){let no=db.tables.length?Math.max(...db.tables.map(t=>t.no))+1:1;db.tables.push({id:db.nextTable++,no});audit("Masa eklendi","Masa "+no);render();notify("Masa "+no+" eklendi.")}
+function removeTable(){
+ if(db.tables.length<=1)return alert("En az bir masa olmalı.");
+ const candidates=db.tables.filter(t=>!tableOrder(t.id));
+ if(!candidates.length)return alert("Silinebilecek boş masa yok. Önce bir hesabı kapat veya taşı.");
+ let d=document.createElement("div");d.className="modal";
+ d.innerHTML=`<div class="modalbox"><div class="modalhead"><h3>Masa Sil</h3><button type="button" class="close">✕</button></div><p style="color:#64748b">Silmek istediğin boş masayı seç. Dolu masalar burada gösterilmez.</p><div class="checklist">${candidates.map(t=>`<label class="check"><input type="radio" name="deleteTable" value="${t.id}"> <b>Masa ${t.no}</b><small>Boş</small></label>`).join("")}</div><button type="button" class="danger full" id="confirmDeleteTable">Masayı Sil</button></div>`;
+ document.body.appendChild(d);d.querySelector(".close").onclick=()=>d.remove();
+ d.querySelector("#confirmDeleteTable").onclick=()=>{const input=d.querySelector('input[name="deleteTable"]:checked');if(!input)return alert("Önce bir masa seç.");const t=db.tables.find(x=>x.id===Number(input.value));if(!t||tableOrder(t.id))return alert("Bu masa artık dolu.");confirmModal("Masa Sil","Masa "+t.no+" silinecek. Bu işlem geri alınamaz.","Masayı Sil",true).then(ok=>{if(!ok)return;db.tables=db.tables.filter(x=>x.id!==t.id);audit("Masa silindi","Masa "+t.no);save();d.remove();render();notify("Masa "+t.no+" silindi.")})};
+}
+function categoryModal(id){
+ let c=id?db.cats.find(x=>x.id===id):null,d=document.createElement("div");d.className="modal";d.innerHTML=`<div class="modalbox"><div class="modalhead"><h3>${c?"Kategori Düzenle":"Kategori Ekle"}</h3><button type="button" class="close">✕</button></div><form id="catForm"><div class="field"><label>Kategori adı</label><input id="cn" value="${c?esc(c.name):""}" required></div><button type="submit" class="primary full" style="margin-top:15px">${c?"Kaydet":"Ekle"}</button></form></div>`;document.body.appendChild(d);d.querySelector(".close").onclick=()=>d.remove();d.querySelector("form").onsubmit=e=>{e.preventDefault();const n=document.getElementById("cn").value.trim();if(!n)return;if(c)c.name=n;else{const id=Math.max(0,...db.cats.map(x=>Number(x.id)||0))+1;db.cats.push({id,name:n,products:[]})}save();d.remove();render();notify(c?"Kategori güncellendi.":"Kategori eklendi.")}}
+function deleteCategory(id){let c=db.cats.find(x=>x.id===id);if(!c)return;if(c.products.length)return alert("Bu kategoride ürünler var. Önce ürünleri taşı veya sil.");confirmModal("Kategori Sil",c.name+" kategorisi silinecek.","Kategoriyi Sil").then(ok=>{if(!ok)return;db.cats=db.cats.filter(x=>x.id!==id);audit("Kategori silindi",c.name);render()})}
+function userModal(id){
+ let u=id?db.users.find(x=>x.id===id):null,d=document.createElement("div");d.className="modal";d.innerHTML=`<div class="modalbox"><div class="modalhead"><h3>${u?"Personel Düzenle":"Personel Ekle"}</h3><button type="button" class="close">✕</button></div><form id="userForm"><div class="formgrid"><div class="field"><label>Ad Soyad</label><input id="un" value="${u?esc(u.name):""}" required></div><div class="field"><label>Kullanıcı adı</label><input id="uu" value="${u?esc(u.username):""}" required></div><div class="field"><label>Şifre</label><input id="up" type="password" placeholder="${u?"Değiştirmek istemiyorsan boş bırak":"1234"}" ${u?"":"required"}></div><div class="field"><label>Rol</label><select id="ur"><option value="WAITER" ${u?.role==="WAITER"?"selected":""}>Garson</option><option value="CASHIER" ${u?.role==="CASHIER"?"selected":""}>Kasa</option><option value="BARISTA" ${u?.role==="BARISTA"?"selected":""}>Barista</option><option value="ADMIN" ${u?.role==="ADMIN"?"selected":""}>Admin</option></select></div></div><button class="primary full">Kaydet</button></form></div>`;document.body.appendChild(d);d.querySelector(".close").onclick=()=>d.remove();d.querySelector("form").onsubmit=e=>{e.preventDefault();let name=document.getElementById("un").value.trim(),username=document.getElementById("uu").value.trim(),pass=document.getElementById("up").value;if(db.users.some(x=>x.username===username&&(!u||x.id!==u.id)))return alert("Bu kullanıcı adı zaten var.");if(u){u.name=name;u.username=username;u.role=document.getElementById("ur").value;if(pass)u.password=pass}else db.users.push({id:Math.max(0,...db.users.map(x=>x.id))+1,name,username,password:pass,role:document.getElementById("ur").value,active:true});save();d.remove();render();notify("Personel kaydedildi.")}}
+function toggleUser(id){
+ let u=db.users.find(x=>x.id===id);
+ if(!u||u.role==="ADMIN")return;
+ u.active=!u.active;
+ save();
+ if(user&&user.id===id&&!u.active){logout();return}
+ render();
+ notify(u.active?u.name+" aktif edildi.":u.name+" pasifleştirildi.");
+}
+function deleteUser(id){
+ let u=db.users.find(x=>x.id===id);
+ if(!u||u.role==="ADMIN")return alert("Admin hesabı silinemez.");
+ confirmModal("Personel Sil",u.name+" personeli silinecek.","Personeli Sil").then(ok=>{if(!ok)return;db.users=db.users.filter(x=>x.id!==id);audit("Personel silindi",u.name);render();notify("Personel silindi.")});
+}
+function modifierModal(id){
+ let m=id?db.modifiers.find(x=>x.id===id):null,d=document.createElement("div");d.className="modal";d.innerHTML=`<div class="modalbox"><div class="modalhead"><h3>${m?"Ekstra Düzenle":"Ekstra Ekle"}</h3><button type="button" class="close">✕</button></div><form id="modForm"><div class="formgrid"><div class="field"><label>Ad</label><input id="mn" value="${m?esc(m.name):"Ekstra Shot"}" required></div><div class="field"><label>Ek fiyat (TL)</label><input id="mp" type="number" min="0" step=".01" value="${m?m.price:10}" required></div></div><label style="display:block;font-weight:800;margin:15px 0 7px">Hangi kategorilerde gösterilsin?</label><div class="checklist">${db.cats.map(c=>`<label class="check"><input type="checkbox" data-catmod="${c.id}" ${m?.categoryIds?.includes(c.id)?"checked":""}> ${esc(c.name)}</label>`).join("")}</div><label class="remember"><input id="ma" type="checkbox" ${!m||m.active?"checked":""}> Aktif</label><button class="primary full">Kaydet</button></form></div>`;document.body.appendChild(d);d.querySelector(".close").onclick=()=>d.remove();d.querySelector("form").onsubmit=e=>{e.preventDefault();let cats=[...d.querySelectorAll("[data-catmod]:checked")].map(x=>Number(x.dataset.catmod));if(m){m.name=document.getElementById("mn").value.trim();m.price=Number(document.getElementById("mp").value);m.categoryIds=cats;m.active=document.getElementById("ma").checked}else db.modifiers.push({id:db.nextModifier++,name:document.getElementById("mn").value.trim(),price:Number(document.getElementById("mp").value),categoryIds:cats,active:true});save();d.remove();render();notify("Ekstra kaydedildi.")}}
+function deleteModifier(id){confirmModal("Ekstra Sil","Bu ürün ekstrası silinecek.","Ekstrayı Sil").then(ok=>{if(!ok)return;db.modifiers=db.modifiers.filter(x=>x.id!==id);audit("Ekstra silindi","ID "+id);render()})}
+async function poll(){try{let latest=null;if(serverSyncEnabled){const r=await fetch("/api/state",{cache:"no-store"});if(r.ok)latest=await r.json()}else{let raw=localStorage.getItem(KEY);if(raw)latest=JSON.parse(raw)}if(latest){db=latest;let active=activeOrders();if(user){const fresh=db.users.find(x=>x.id===user.id&&x.active);if(!fresh){logout();return}user=fresh;if(user.role==="BARISTA"&&active.some(o=>!seenOrderIds.has(o.id)&&o.items.some(i=>i.status==="WAITING"))){notify("🔔 Yeni sipariş geldi! Fiş yazdırılmaya hazır.");render()}seenOrderIds=new Set(active.map(o=>o.id));if(view!=="login"&&document.visibilityState!=="hidden")render()}}}catch(e){/* keep local state */}}
+setInterval(poll,1500);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)render()});
+render();
+</script>
+<script>if("serviceWorker" in navigator && location.protocol!=="file:"){navigator.serviceWorker.register("./sw.js").catch(()=>{})}</script>
+</body>
+</html>
