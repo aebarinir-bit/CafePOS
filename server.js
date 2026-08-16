@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs");
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: "10mb" }));
 
@@ -19,7 +19,11 @@ if (!fs.existsSync(DATA_FILE)) {
 }
 
 // CafePOS dosyalarını yayınla
-app.use(express.static(__dirname));
+app.use(express.static(__dirname));app.use(express.static(__dirname));
+
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "CafePOS-Demo-v12.html"));
+});
 
 
 // =====================================================
