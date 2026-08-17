@@ -17,11 +17,12 @@ app.get("/", (req, res) => {
     res.sendFile(path.join(__dirname, "CafePOS-Demo-v12.html"));
 });
 
-// Ortak veriyi getir
+// Ortak veriyi getir — veriyle birlikte __v (sürüm numarası) da gönderilir
 app.get("/api/state", async (req, res) => {
     try {
-        const data = await getState();
-        res.json(data || { initialized: false });
+        const state = await getState();
+        if (!state) return res.json({ initialized: false, __v: 0 });
+        res.json({ ...state.data, __v: state.version });
     } catch (error) {
         console.error("Veri okuma hatası:", error);
         res.status(500).json({
@@ -30,12 +31,25 @@ app.get("/api/state", async (req, res) => {
     }
 });
 
-// Ortak veriyi kaydet
+// Ortak veriyi kaydet — istekle birlikte gelen __v, veritabanındaki güncel
+// sürümle eşleşmiyorsa (arada başka biri güncellemişse) 409 döner ve
+// hiçbir şeyin üzerine yazılmaz.
 app.post("/api/state", async (req, res) => {
     try {
-        await saveState(req.body);
+        const { __v, ...data } = req.body;
+        const expectedVersion = Number(__v) || 0;
+        const newVersion = await saveState(data, expectedVersion);
+
+        if (newVersion === null) {
+            return res.status(409).json({
+                error: "conflict",
+                message: "Veri başka biri tarafından güncellendi."
+            });
+        }
+
         res.json({
-            ok: true
+            ok: true,
+            __v: newVersion
         });
     } catch (error) {
         console.error("Veri kaydetme hatası:", error);
@@ -67,7 +81,7 @@ initDb()
             console.log("=================================");
             console.log("");
             console.log(`Port: ${PORT}`);
-            console.log("Veritabanı: PostgreSQL bağlantısı hazır");
+            console.log("Veritabanı: PostgreSQL bağlantısı hazır (sürüm kontrollü kayıt aktif)");
             console.log("");
             console.log("Server çalışıyor...");
             console.log("");

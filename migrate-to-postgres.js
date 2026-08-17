@@ -2,7 +2,7 @@ require("dotenv").config();
 
 const fs = require("fs");
 const path = require("path");
-const { initDb, saveState, pool } = require("./db");
+const { initDb, forceSaveState, pool } = require("./db");
 
 async function main() {
     const filePath = path.join(__dirname, "cafepos-data.json");
@@ -16,7 +16,7 @@ async function main() {
     const data = JSON.parse(raw);
 
     await initDb();
-    await saveState(data);
+    await forceSaveState(data);
 
     console.log("cafepos-data.json içeriği Postgres'e aktarıldı:");
     console.log(`  - ${data.users?.length || 0} kullanıcı`);
