@@ -547,9 +547,15 @@ function qrModal(table){
  d.innerHTML=`<div class="modalbox"><div class="modalhead"><h3>Masa ${table.no} · QR Kod</h3><button type="button" class="close">✕</button></div><div style="text-align:center"><img src="${qrImg}" alt="Masa ${table.no} QR" style="width:100%;max-width:280px;border-radius:12px;border:1px solid var(--line)"></div><p style="color:#64748b;font-size:12px;word-break:break-all;margin-top:12px">${esc(url)}</p><small style="display:block;color:#64748b">Bu QR'ı yazdırıp Masa ${table.no}'e yapıştır. Müşteri okutunca doğrudan bu masaya sipariş verebileceği menü açılır, başka masaya sipariş veremez.</small></div>`;
  document.body.appendChild(d);d.querySelector(".close").onclick=()=>d.remove();
 }
-function customerInit(){
+async function customerInit(){
  const t=new URLSearchParams(location.search).get("t");
  if(!t)return false;
+ /* Bu cihaz (müşterinin telefonu) siteye ilk kez giriyor olabilir —
+    localStorage'daki (ya da hiç yoksa fabrika ayarı) db henüz bu masanın
+    QR token'ını içermeyebilir. O yüzden karar vermeden önce mutlaka
+    sunucudan taze veri çekiyoruz. */
+ const fresh=await fetchLatest();
+ if(fresh)db=normalizeDb(fresh);
  const table=db.tables.find(x=>x.qrToken===t);
  if(!table)return false;
  custTable=table;
@@ -607,16 +613,17 @@ async function pollCustomer(){
   }
  }catch(e){}
 }
-if(customerInit()){
- setInterval(pollCustomer,1500);
- pollCustomer();
- renderCustomer();
-}else{
- setInterval(poll,1500);
- document.addEventListener("visibilitychange",()=>{if(!document.hidden)render()});
- poll();
- render();
-}
+(async()=>{
+ if(await customerInit()){
+  setInterval(pollCustomer,1500);
+  renderCustomer();
+ }else{
+  setInterval(poll,1500);
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)render()});
+  poll();
+  render();
+ }
+})();
 </script>
 <script>if("serviceWorker" in navigator && location.protocol!=="file:"){navigator.serviceWorker.register("./sw.js").catch(()=>{})}</script>
 </body>
