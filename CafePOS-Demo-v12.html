@@ -158,7 +158,7 @@ function productCost(p){if(!p||!p.recipe||!p.recipe.length)return null;let total
 function allProducts(){return db.cats.flatMap(c=>c.products.map(p=>({...p,cat:c.id})))}
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
 function current(){let id=localStorage.getItem("cafeos_user");return db.users.find(u=>u.id==id&&u.active)||null}
-let user=current(),view=user?(user.role==="ADMIN"?"dashboard":user.role==="BARISTA"?"barista":user.role==="CASHIER"?"cashier":"tables"):"login",selectedTable=null,selectedStaff=null,cart=[],cat=0,toastTimer=null,seenOrderIds=new Set();
+let user=current(),view=user?(user.role==="ADMIN"?"dashboard":user.role==="BARISTA"?"barista":user.role==="CASHIER"?"cashier":"tables"):"login",selectedTable=null,selectedStaff=null,cart=[],cat=0,toastTimer=null,seenOrderIds=new Set(),reportStart=null,reportEnd=null;
 function notify(t){clearTimeout(toastTimer);document.querySelectorAll(".toast").forEach(x=>x.remove());let d=document.createElement("div");d.className="toast";d.textContent=t;document.body.appendChild(d);toastTimer=setTimeout(()=>d.remove(),2600)}
 function activeOrders(){return db.orders.filter(o=>o.status==="ACTIVE")}
 function tableOrder(id){return activeOrders().find(o=>o.tableId==id)}
@@ -166,7 +166,7 @@ function outstandingItems(o){return o.items.map((i,idx)=>({...i,index:idx,remain
 function outstandingTotal(o){return outstandingItems(o).reduce((s,i)=>s+i.remaining*i.price,0)}
 function orderDetail(id){const o=db.orders.find(x=>x.id===id);if(!o)return;let d=document.createElement("div");d.className="modal";d.innerHTML=`<div class="modalbox"><div class="modalhead"><h3>Masa ${o.tableId} · Sipariş #${o.id}</h3><button class="close">✕</button></div><p style="color:#64748b">${new Date(o.created).toLocaleString("tr-TR")} · ${esc(db.users.find(u=>u.id===o.waiterId)?.name||"Garson")}</p><div class="checklist">${o.items.map(i=>`<div class="check"><span><b>${i.qty}× ${esc(i.name)}</b><small>${i.mods?.length?i.mods.map(m=>esc(m.name)).join(", "):""}${i.note?" · "+esc(i.note):""}</small></span><strong>${money(i.price*i.qty)}</strong></div>`).join("")}</div><div class="total"><span>Toplam</span><b>${money(o.total)}</b></div></div>`;document.body.appendChild(d);d.querySelector(".close").onclick=()=>d.remove()}
 function logout(){localStorage.removeItem("cafeos_user");user=null;view="login";render()}
-function navItems(){if(user.role==="ADMIN")return [["dashboard","▦ Genel Bakış"],["tables","▦ Masalar"],["barista","☕ Barista"],["cashier","▣ Kasa"],["menu","☕ Menü"],["stock","📦 Stok Takip"],["users","♙ Personel"],["settings","⚙ Ayarlar"]];if(user.role==="VIEWER")return [["dashboard","▦ Genel Bakış"],["tables","▦ Masalar"],["barista","☕ Barista"],["cashier","▣ Kasa"],["menu","☕ Menü"],["stock","📦 Stok Takip"],["settings","⚙ Ayarlar"]];if(user.role==="BARISTA")return [["barista","☕ Siparişler"],["settings","⚙ Ayarlar"]];if(user.role==="CASHIER")return [["cashier","▣ Kasa"],["settings","⚙ Ayarlar"]];return [["tables","▦ Masalar"],["settings","⚙ Ayarlar"]]}
+function navItems(){if(user.role==="ADMIN")return [["dashboard","▦ Genel Bakış"],["tables","▦ Masalar"],["barista","☕ Barista"],["cashier","▣ Kasa"],["menu","☕ Menü"],["stock","📦 Stok Takip"],["reports","📊 Raporlar"],["users","♙ Personel"],["settings","⚙ Ayarlar"]];if(user.role==="VIEWER")return [["dashboard","▦ Genel Bakış"],["tables","▦ Masalar"],["barista","☕ Barista"],["cashier","▣ Kasa"],["menu","☕ Menü"],["stock","📦 Stok Takip"],["reports","📊 Raporlar"],["settings","⚙ Ayarlar"]];if(user.role==="BARISTA")return [["barista","☕ Siparişler"],["settings","⚙ Ayarlar"]];if(user.role==="CASHIER")return [["cashier","▣ Kasa"],["settings","⚙ Ayarlar"]];return [["tables","▦ Masalar"],["settings","⚙ Ayarlar"]]}
 function page(){
  if(view==="dashboard")return dashboard();
  if(view==="tables")return tables();
@@ -175,6 +175,7 @@ function page(){
  if(view==="cashier")return cashier();
  if(view==="menu")return menu();
  if(view==="stock")return stockPage();
+ if(view==="reports")return reportsPage();
  if(view==="users")return users();
  if(view==="staffdetail")return staffDetail();
  if(view==="settings")return settings();
@@ -265,6 +266,63 @@ function deleteStock(id){
   render();notify("Stok kalemi silindi.")
  });
 }
+function defaultReportRange(){const now=new Date(),start=new Date(now.getFullYear(),now.getMonth(),1),pad=n=>String(n).padStart(2,"0"),fmt=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());return {start:fmt(start),end:fmt(now)}}
+function reportsData(startStr,endStr){
+ const start=new Date(startStr+"T00:00:00"),end=new Date(endStr+"T23:59:59.999");
+ const orders=db.orders.filter(o=>{if(o.status!=="COMPLETED")return false;const d=new Date(o.completed||o.created);return d>=start&&d<=end});
+ const productMap=new Map(allProducts().map(p=>[p.id,p]));
+ let revenue=0,cost=0,costedQty=0,soldQty=0;const perProduct=new Map();
+ orders.forEach(o=>{
+  revenue+=Number(o.total||0);
+  o.items.forEach(i=>{
+   soldQty+=i.qty;
+   const p=productMap.get(i.productId),c=p?productCost(p):null,rowCost=c!=null?c*i.qty:0;
+   if(c!=null){cost+=rowCost;costedQty+=i.qty}
+   const cur=perProduct.get(i.name)||{qty:0,revenue:0,cost:0,hasCost:false};
+   cur.qty+=i.qty;cur.revenue+=i.price*i.qty;cur.cost+=rowCost;if(c!=null)cur.hasCost=true;
+   perProduct.set(i.name,cur);
+  });
+ });
+ return {orders,revenue,cost,profit:revenue-cost,costedQty,soldQty,perProduct};
+}
+function reportsPage(){
+ if(user.role!=="ADMIN"&&user.role!=="VIEWER")return `<div class="empty">Bu bölümü yalnızca admin kullanabilir.</div>`;
+ if(!reportStart||!reportEnd){const d=defaultReportRange();reportStart=d.start;reportEnd=d.end}
+ const data=reportsData(reportStart,reportEnd);
+ const bestList=[...data.perProduct.entries()].sort((a,b)=>b[1].qty-a[1].qty);
+ return title("Raporlar","Tarih aralığına göre ciro, maliyet ve satış özetini gör; Excel/muhasebe için CSV indir")+
+  `<section class="panel"><div class="formgrid"><div class="field"><label>Başlangıç</label><input type="date" id="repStart" value="${reportStart}"></div><div class="field"><label>Bitiş</label><input type="date" id="repEnd" value="${reportEnd}"></div></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button type="button" class="primary" id="repApply">Uygula</button><button type="button" class="secondary" id="repThisMonth">Bu Ay</button><button type="button" class="secondary" id="repToday">Bugün</button><button type="button" class="secondary" id="repExportOrders">⬇ Siparişleri CSV İndir</button><button type="button" class="secondary" id="repExportProducts">⬇ Ürün Özetini CSV İndir</button></div></section>`+
+  `<div class="gridstats" style="margin-top:15px"><div class="stat"><span>Sipariş Sayısı</span><b>${data.orders.length}</b></div><div class="stat"><span>Ciro</span><b>${money(data.revenue)}</b></div><div class="stat"><span>Tahmini Maliyet</span><b>${money(data.cost)}</b></div><div class="stat"><span>Tahmini Kâr</span><b>${money(data.profit)}</b></div></div>`+
+  (data.soldQty>0&&data.costedQty<data.soldQty?`<div class="notice" style="margin-top:14px"><strong>Kısmi maliyet takibi</strong>Bu aralıkta satılan ${data.soldQty} üründen sadece ${data.costedQty} tanesinin reçetesi var; maliyet/kâr rakamları sadece onları kapsıyor.</div>`:"")+
+  `<section class="panel" style="margin-top:15px"><h3>Ürün Bazlı Satışlar</h3>${bestList.length?bestList.map(([name,v])=>`<div class="row"><span><b>${esc(name)}</b><small>${v.hasCost?"maliyet "+money(v.cost)+" · kâr "+money(v.revenue-v.cost):"reçete yok"}</small></span><b>${v.qty} adet · ${money(v.revenue)}</b></div>`).join(""):`<div class="empty">Bu aralıkta satış yok.</div>`}</section>`+
+  `<section class="panel" style="margin-top:15px"><h3>Sipariş Listesi</h3>${data.orders.length?data.orders.slice().sort((a,b)=>(b.completed||b.created)-(a.completed||a.created)).map(o=>`<div class="row"><span><b>#${o.id} · Masa ${o.tableId}</b><small>${new Date(o.completed||o.created).toLocaleString("tr-TR")}</small></span><strong>${money(o.total)}</strong></div>`).join(""):`<div class="empty">Bu aralıkta sipariş yok.</div>`}</section>`;
+}
+function csvEscape(v){let s=String(v??"");return /[",\n;]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s}
+function downloadCSV(filename,rows){
+ const csv="﻿"+rows.map(r=>r.map(csvEscape).join(";")).join("\r\n");
+ const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();
+ setTimeout(()=>{URL.revokeObjectURL(url);a.remove()},1000);
+}
+function exportOrdersCSV(){
+ const data=reportsData(reportStart,reportEnd);
+ const rows=[["Sipariş No","Tarih","Masa","Garson","Ürünler","Tutar (TL)","Durum"]];
+ data.orders.slice().sort((a,b)=>(a.completed||a.created)-(b.completed||b.created)).forEach(o=>{
+  const waiter=db.users.find(u=>u.id===o.waiterId)?.name||"";
+  const itemsSummary=o.items.map(i=>i.qty+"x "+i.name).join(", ");
+  rows.push([o.id,new Date(o.completed||o.created).toLocaleString("tr-TR"),"Masa "+o.tableId,waiter,itemsSummary,Number(o.total||0).toFixed(2),o.status]);
+ });
+ downloadCSV("siparisler_"+reportStart+"_"+reportEnd+".csv",rows);
+}
+function exportProductsCSV(){
+ const data=reportsData(reportStart,reportEnd);
+ const rows=[["Ürün","Adet","Ciro (TL)","Maliyet (TL)","Kâr (TL)"]];
+ [...data.perProduct.entries()].sort((a,b)=>b[1].qty-a[1].qty).forEach(([name,v])=>{
+  rows.push([name,v.qty,v.revenue.toFixed(2),v.hasCost?v.cost.toFixed(2):"",v.hasCost?(v.revenue-v.cost).toFixed(2):""]);
+ });
+ downloadCSV("urun_ozet_"+reportStart+"_"+reportEnd+".csv",rows);
+}
 function roleLabel(role){return role==="WAITER"?"Garson":role==="BARISTA"?"Barista":role==="CASHIER"?"Kasa":role==="VIEWER"?"İzleyici":"Admin"}
 function roleIcon(role){return role==="WAITER"?"🧑‍🍳":role==="BARISTA"?"☕":role==="CASHIER"?"💳":role==="VIEWER"?"👁":"👑"}
 function users(){
@@ -341,6 +399,11 @@ function bindPage(){
  let au=document.getElementById("addUser");if(au)au.onclick=()=>userModal();
  let am=document.getElementById("addModifier");if(am)am.onclick=()=>modifierModal();
  let ast=document.getElementById("addStock");if(ast)ast.onclick=()=>stockModal();
+ let ra=document.getElementById("repApply");if(ra)ra.onclick=()=>{const s=document.getElementById("repStart").value,en=document.getElementById("repEnd").value;if(s)reportStart=s;if(en)reportEnd=en;render()};
+ let rtm=document.getElementById("repThisMonth");if(rtm)rtm.onclick=()=>{const d=defaultReportRange();reportStart=d.start;reportEnd=d.end;render()};
+ let rtd=document.getElementById("repToday");if(rtd)rtd.onclick=()=>{const d=defaultReportRange();reportStart=d.end;reportEnd=d.end;render()};
+ let reo=document.getElementById("repExportOrders");if(reo)reo.onclick=()=>exportOrdersCSV();
+ let rep=document.getElementById("repExportProducts");if(rep)rep.onclick=()=>exportProductsCSV();
  document.querySelectorAll("[data-editstock]").forEach(b=>b.onclick=()=>stockModal(Number(b.dataset.editstock)));
  document.querySelectorAll("[data-stockmove]").forEach(b=>b.onclick=()=>stockMoveModal(Number(b.dataset.stockmove)));
  document.querySelectorAll("[data-deletestock]").forEach(b=>b.onclick=()=>deleteStock(Number(b.dataset.deletestock)));
