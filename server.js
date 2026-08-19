@@ -7,13 +7,50 @@ const { initDb, getState, saveState } = require("./db");
 const app = express();
 const PORT = process.env.PORT || 8080;
 
+// Render gibi ters proxy arkasında gerçek istemci IP'sini X-Forwarded-For'dan
+// okuyabilmek için gerekli.
+app.set("trust proxy", true);
+
 app.use(express.json({ limit: "10mb" }));
 
 // CafePOS dosyalarını yayınla
 app.use(express.static(__dirname));
 
-// Ana sayfa isteğini CafePOS dosyasına yönlendir
-app.get("/", (req, res) => {
+function clientIp(req) {
+    return (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.ip;
+}
+
+// Admin, Ayarlar'dan "izin verilen IP" alanını doldururken kendi anlık IP'sini
+// kolayca öğrenebilsin diye.
+app.get("/api/my-ip", (req, res) => {
+    res.json({ ip: clientIp(req) });
+});
+
+// Ana sayfa isteği. Müşteri QR'ından (?t=...) geliyorsa ve admin "sadece
+// kafenin WiFi'si" kilidini açtıysa, istek kafenin izinli IP'sinden
+// gelmiyorsa siparişe kapalı bir uyarı sayfası döner.
+app.get("/", async (req, res) => {
+    if (req.query.t) {
+        try {
+            const state = await getState();
+            const settings = (state && state.data && state.data.settings) || {};
+            if (settings.customerOrderIpLock && settings.allowedIp) {
+                const ip = clientIp(req);
+                if (ip !== settings.allowedIp) {
+                    return res
+                        .status(403)
+                        .send(
+                            '<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CafePOS</title></head>' +
+                            '<body style="font-family:system-ui,sans-serif;background:#f3f6fa;display:grid;place-items:center;min-height:100vh;margin:0;padding:20px;text-align:center">' +
+                            '<div style="max-width:420px"><div style="font-size:40px">📶</div><h2>Sadece Kafe WiFi\'sinden Sipariş</h2>' +
+                            "<p style=\"color:#64748b\">Bu sipariş sayfasına yalnızca kafenin kendi WiFi ağına bağlıyken erişilebiliyor. Lütfen kafenin WiFi'sine bağlanıp tekrar dener misin?</p></div></body></html>"
+                        );
+                }
+            }
+        } catch (error) {
+            console.error("IP kontrolü sırasında hata (izin veriliyor):", error);
+        }
+    }
     res.sendFile(path.join(__dirname, "CafePOS-Demo-v12.html"));
 });
 
