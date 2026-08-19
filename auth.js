@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const { getTenantBySlug } = require("./db");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -61,12 +62,23 @@ function requirePlatformAuth(req, res, next) {
 }
 
 // Bir route handler'ı kiracı oturumu şartıyla sarmalar; başarılıysa
-// req.tenantSlug'ı doldurur.
-function requireTenantAuth(req, res, next) {
+// req.tenantSlug'ı doldurur. JWT imzası geçerli olsa bile, kiracı DB'den
+// silinmiş ya da pasifleştirilmişse burada reddedilir — yoksa platformdan
+// bir kafeyi kapatmak, o kafenin zaten oturum açmış kullanıcılarını
+// (JWT 30 gün geçerli) engellemez.
+async function requireTenantAuth(req, res, next) {
     const token = readCookie(req, "tenant_session");
     const payload = token && verifyToken(token);
     if (!payload || !payload.tenantSlug) {
         return res.status(401).json({ error: "unauthorized" });
+    }
+    try {
+        const tenant = await getTenantBySlug(payload.tenantSlug);
+        if (!tenant || !tenant.active) {
+            return res.status(401).json({ error: "unauthorized" });
+        }
+    } catch (e) {
+        return res.status(500).json({ error: "server_error" });
     }
     req.tenantSlug = payload.tenantSlug;
     next();
