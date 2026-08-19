@@ -26,6 +26,28 @@ async function initDb() {
         ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1
     `);
 
+    // Çok kiracılı yapı: her kafe hesabı (kiracı) burada bir satır.
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS tenants (
+            slug TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            active BOOLEAN NOT NULL DEFAULT true,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+    `);
+
+    // Masa QR token'ından hangi kiracıya ait olduğunu hızlıca bulmak için
+    // (müşteri self-servis ucu, tüm kiracıların verisini taramak zorunda kalmasın diye).
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS qr_tokens (
+            token TEXT PRIMARY KEY,
+            tenant_slug TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+    `);
+
     // Satır hiç yoksa (ilk kurulum), boş bir state ile oluştur.
     await pool.query(
         `INSERT INTO cafe_state (cafe_slug, data, version)
@@ -33,6 +55,90 @@ async function initDb() {
          ON CONFLICT (cafe_slug) DO NOTHING`,
         [DEFAULT_CAFE_SLUG, { initialized: false }]
     );
+}
+
+// Bir kiracı için cafe_state satırı yoksa oluşturur; VARSA DOKUNMAZ.
+// forceSaveState'in aksine burada "DO UPDATE" yok — bilerek. Bu fonksiyon
+// hem sunucu açılışında (mevcut kafe için) hem yeni kiracı oluştururken
+// çağrılıyor; ikinci durumda slug'ın rastlantıyla zaten var olan (canlı,
+// dolu) bir satırla çakışması hâlinde o satırın üzerine asla yazılmamalı.
+async function ensureCafeStateRow(slug, initialData = { initialized: false }) {
+    await pool.query(
+        `INSERT INTO cafe_state (cafe_slug, data, version)
+         VALUES ($1, $2, 1)
+         ON CONFLICT (cafe_slug) DO NOTHING`,
+        [slug, initialData]
+    );
+}
+
+// --- Kiracı (tenant) yönetimi ---
+
+async function createTenant({ slug, name, username, passwordHash }) {
+    const { rows } = await pool.query(
+        `INSERT INTO tenants (slug, name, username, password_hash)
+         VALUES ($1, $2, $3, $4)
+         RETURNING slug, name, username, active, created_at`,
+        [slug, name, username, passwordHash]
+    );
+    return rows[0];
+}
+
+async function getTenantByUsername(username) {
+    const { rows } = await pool.query(
+        `SELECT slug, name, username, password_hash, active FROM tenants WHERE username = $1`,
+        [username]
+    );
+    return rows[0] || null;
+}
+
+async function getTenantBySlug(slug) {
+    const { rows } = await pool.query(
+        `SELECT slug, name, username, active FROM tenants WHERE slug = $1`,
+        [slug]
+    );
+    return rows[0] || null;
+}
+
+async function listTenants() {
+    const { rows } = await pool.query(
+        `SELECT slug, name, username, active, created_at FROM tenants ORDER BY created_at DESC`
+    );
+    return rows;
+}
+
+async function updateTenant(slug, fields) {
+    const sets = [];
+    const values = [];
+    let i = 1;
+    if (fields.name !== undefined) { sets.push(`name = $${i++}`); values.push(fields.name); }
+    if (fields.username !== undefined) { sets.push(`username = $${i++}`); values.push(fields.username); }
+    if (fields.passwordHash !== undefined) { sets.push(`password_hash = $${i++}`); values.push(fields.passwordHash); }
+    if (fields.active !== undefined) { sets.push(`active = $${i++}`); values.push(fields.active); }
+    if (!sets.length) return getTenantBySlug(slug);
+    values.push(slug);
+    const { rows } = await pool.query(
+        `UPDATE tenants SET ${sets.join(", ")} WHERE slug = $${i} RETURNING slug, name, username, active, created_at`,
+        values
+    );
+    return rows[0] || null;
+}
+
+// --- Masa QR token -> kiracı eşlemesi ---
+
+async function upsertQrToken(token, tenantSlug) {
+    await pool.query(
+        `INSERT INTO qr_tokens (token, tenant_slug) VALUES ($1, $2)
+         ON CONFLICT (token) DO NOTHING`,
+        [token, tenantSlug]
+    );
+}
+
+async function getTenantSlugForToken(token) {
+    const { rows } = await pool.query(
+        `SELECT tenant_slug FROM qr_tokens WHERE token = $1`,
+        [token]
+    );
+    return rows[0] ? rows[0].tenant_slug : null;
 }
 
 // Mevcut veriyi + sürüm numarasını birlikte döndürür
@@ -80,5 +186,13 @@ module.exports = {
     getState,
     saveState,
     forceSaveState,
-    DEFAULT_CAFE_SLUG
+    DEFAULT_CAFE_SLUG,
+    ensureCafeStateRow,
+    createTenant,
+    getTenantByUsername,
+    getTenantBySlug,
+    listTenants,
+    updateTenant,
+    upsertQrToken,
+    getTenantSlugForToken
 };

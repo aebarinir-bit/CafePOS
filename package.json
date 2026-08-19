@@ -8,8 +8,10 @@
     "migrate": "node migrate-to-postgres.js"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^16.4.7",
     "express": "^5.1.0",
-    "pg": "^8.13.1",
-    "dotenv": "^16.4.7"
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.13.1"
   }
 }
