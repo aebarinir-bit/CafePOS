@@ -103,7 +103,9 @@ if(!db.staffV6){
 }
 let serverSyncEnabled=location.protocol!=="file:";
 let saving=false;
-async function save(){localStorage.setItem(KEY,JSON.stringify(db));if(serverSyncEnabled){saving=true;let conflicted=false;try{const r=await fetch("/api/state",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(db)});if(r.status===409){conflicted=true}else{const res=await r.json();if(res&&typeof res.__v==="number")db.__v=res.__v}}catch(e){/* local fallback remains available */}saving=false;if(conflicted){await poll();render();alert("Az önce başka biri bu veriyi güncelledi, senin değişikliğin kaydedilemedi. Ekran güncel hâline getirildi — işlemi tekrar dener misin?")}}}
+let saveQueue=Promise.resolve();
+function save(){return saveQueue=saveQueue.then(doSave,doSave)}
+async function doSave(){localStorage.setItem(KEY,JSON.stringify(db));if(serverSyncEnabled){saving=true;let conflicted=false;try{const r=await fetch("/api/state",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(db)});if(r.status===409){conflicted=true}else{const res=await r.json();if(res&&typeof res.__v==="number")db.__v=res.__v}}catch(e){/* local fallback remains available */}saving=false;if(conflicted){await poll();render();alert("Az önce başka biri bu veriyi güncelledi, senin değişikliğin kaydedilemedi. Ekran güncel hâline getirildi — işlemi tekrar dener misin?")}}}
 function audit(action,details=""){db.audit.push({id:Date.now()+Math.random(),at:Date.now(),userId:user?.id||null,userName:user?.name||"Sistem",action,details});if(db.audit.length>1000)db.audit=db.audit.slice(-1000);save()}
 function money(n){return Number(n||0).toFixed(2)+" TL"}
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
