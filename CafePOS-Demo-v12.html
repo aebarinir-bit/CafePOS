@@ -516,7 +516,7 @@ async function poll(){try{if(document.querySelector(".modal"))return;if(saving)r
    makinesine hiç dokunmaz, admin/garson ekranlarını etkilemez. QR
    linkindeki token bir masaya bağlıdır; token bilinmeden o masaya
    sipariş verilemez. */
-let custCart=[],custCat=0,custTable=null,custSessionId=null,custExpired=false;
+let custCart=[],custCat=0,custTable=null,custSessionId=null,custExpired=false,custPollTimer=null;
 function qrUrlFor(table){return location.origin+location.pathname+"?t="+table.qrToken}
 /* Token'ı ilk kez burada, admin QR'ı görüntülemek istediğinde üretip
    commit() ile sunucuya kaydediyoruz (ve ancak kayıt bittikten sonra
@@ -566,8 +566,8 @@ async function customerInit(){
 function renderCustomer(){
  document.querySelectorAll(".modal").forEach(m=>m.remove());
  if(custExpired){
-  document.getElementById("app").innerHTML=`<header><div class="brand"><span class="brandmark">☕</span><span>CafePOS</span></div><div class="userbar"><span class="userpill">Masa ${custTable.no}</span></div></header><div class="layout"><main style="max-width:600px;margin:auto">${title("Oturum Sona Erdi","Bu masanın hesabı kapatıldı, güvenlik için bu sayfadan artık sipariş verilemez")}<div class="panel" style="text-align:center;padding:30px"><p style="color:#64748b;margin-bottom:18px">Yeni sipariş vermek için masadaki QR kodu tekrar okut.</p><button type="button" class="primary" id="custReload">Sayfayı Yenile</button></div></main></div>`;
-  document.getElementById("custReload").onclick=()=>location.reload();
+  if(custPollTimer){clearInterval(custPollTimer);custPollTimer=null}
+  document.getElementById("app").innerHTML=`<header><div class="brand"><span class="brandmark">☕</span><span>CafePOS</span></div><div class="userbar"><span class="userpill">Masa ${custTable.no}</span></div></header><div class="layout"><main style="max-width:600px;margin:auto">${title("Oturum Sona Erdi","Bu masanın hesabı kapatıldı")}<div class="panel" style="text-align:center;padding:30px"><p style="color:#64748b">Bu sayfadan artık sipariş verilemez. Yeni sipariş için masadaki QR kodun tekrar okutulması gerekir.</p></div></main></div>`;
   return;
  }
  const existing=tableOrder(custTable.id);
@@ -623,7 +623,7 @@ async function pollCustomer(){
 }
 (async()=>{
  if(await customerInit()){
-  setInterval(pollCustomer,1500);
+  custPollTimer=setInterval(pollCustomer,1500);
   renderCustomer();
  }else{
   setInterval(poll,1500);
