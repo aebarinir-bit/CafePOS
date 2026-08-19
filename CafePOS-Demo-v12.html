@@ -67,40 +67,52 @@ cats:[
 {id:3,name:"Tatlılar",products:[{id:301,name:"San Sebastian",price:180},{id:302,name:"Cheesecake",price:160},{id:303,name:"Dondurma",price:110}]}],
 modifiers:[{id:1,name:"Ekstra Shot",price:10,categoryIds:[1],active:true}],
 orders:[],nextOrder:1,nextProduct:1000,nextModifier:2,audit:[]};
+/* normalizeDb fills in any fields missing from a raw state object — needed
+   not just at page load but every time db is replaced wholesale with a
+   server snapshot (poll(), and doCommit's conflict-retry refetch), since
+   an older/partial snapshot would otherwise wipe out newer client-side
+   fields like stock. */
+function normalizeDb(raw){
+  let d=raw||JSON.parse(JSON.stringify(defaultDB));
+  if(!Array.isArray(d.cats))d.cats=JSON.parse(JSON.stringify(defaultDB.cats));
+  if(!Array.isArray(d.users)||!d.users.length)d.users=JSON.parse(JSON.stringify(defaultDB.users));
+  if(!Array.isArray(d.tables)||!d.tables.length)d.tables=JSON.parse(JSON.stringify(defaultDB.tables));
+  if(!Array.isArray(d.orders))d.orders=[];
+  if(!d.nextOrder)d.nextOrder=Math.max(0,...d.orders.map(o=>Number(o.id)||0))+1;
+  if(!d.nextProduct)d.nextProduct=Math.max(999,...d.cats.flatMap(c=>c.products||[]).map(p=>Number(p.id)||0))+1;
+  if(!d.modifiers)d.modifiers=[{id:1,name:"Ekstra Shot",price:10,categoryIds:[1],active:true}];
+  if(!d.nextModifier)d.nextModifier=2;
+  if(!Array.isArray(d.stock))d.stock=[];
+  if(!d.nextStock)d.nextStock=Math.max(0,...d.stock.map(s=>Number(s.id)||0))+1;
+  if(!Array.isArray(d.audit))d.audit=[];
+  d.cats.forEach(c=>c.products.forEach(p=>{if(!Array.isArray(p.recipe))p.recipe=[]}));
+  /* v6 personnel migration: first launch creates the requested staff list.
+     After that, deletions and active/inactive changes are persistent. */
+  if(!d.staffV6){
+    const oldUsers=Array.isArray(d.users)?d.users:[];
+    const admin=oldUsers.find(u=>u.role==="ADMIN" || u.username==="admin");
+    const byName=new Map(oldUsers.map(u=>[String(u.name||"").replace(/\s*\([^)]*\)\s*$/,"").trim().toLocaleLowerCase("tr-TR"),u]));
+    const wanted=[
+      ["Ahmet (Garson)","ahmet","WAITER"],["Mehmet (Garson)","mehmet","WAITER"],
+      ["Ayşe (Garson)","ayse","WAITER"],["Fuat (Garson)","fuat","WAITER"],
+      ["Yaren (Barista)","yaren","BARISTA"],["Buse (Barista)","buse","BARISTA"],
+      ["Efe (Kasa)","efe","CASHIER"]
+    ];
+    let nextId=Math.max(0,...oldUsers.map(u=>Number(u.id)||0),...defaultDB.users.map(u=>u.id))+1;
+    const staff=wanted.map(([display,username,role])=>{
+      const base=display.replace(/\s*\([^)]*\)\s*$/,"").trim().toLocaleLowerCase("tr-TR");
+      const prior=byName.get(base);
+      return {id:prior?.id ?? nextId++,name:display,username,password:prior?.password||"1234",role,active:prior?.active!==false};
+    });
+    const adminUser=admin?{...admin,name:"Admin",username:"admin",role:"ADMIN",active:true}:{id:nextId++,name:"Admin",username:"admin",password:"1234",role:"ADMIN",active:true};
+    d.users=[...staff,adminUser];
+    d.staffV6=true;
+  }
+  return d;
+}
 let savedRaw=localStorage.getItem(KEY);
 if(!savedRaw) for(const k of LEGACY_KEYS){const r=localStorage.getItem(k);if(r){savedRaw=r;break}}
-let db=JSON.parse(savedRaw||"null")||JSON.parse(JSON.stringify(defaultDB));
-if(!Array.isArray(db.cats))db.cats=JSON.parse(JSON.stringify(defaultDB.cats));
-if(!Array.isArray(db.users)||!db.users.length)db.users=JSON.parse(JSON.stringify(defaultDB.users));
-if(!Array.isArray(db.tables)||!db.tables.length)db.tables=JSON.parse(JSON.stringify(defaultDB.tables));
-if(!Array.isArray(db.orders))db.orders=[];
-if(!db.nextOrder)db.nextOrder=Math.max(0,...db.orders.map(o=>Number(o.id)||0))+1;
-if(!db.nextProduct)db.nextProduct=Math.max(999,...db.cats.flatMap(c=>c.products||[]).map(p=>Number(p.id)||0))+1;
-if(!db.modifiers)db.modifiers=[{id:1,name:"Ekstra Shot",price:10,categoryIds:[1],active:true}];
-if(!db.nextModifier)db.nextModifier=2;
-
-/* v6 personnel migration: first launch creates the requested staff list.
-   After that, deletions and active/inactive changes are persistent. */
-if(!db.staffV6){
-  const oldUsers=Array.isArray(db.users)?db.users:[];
-  const admin=oldUsers.find(u=>u.role==="ADMIN" || u.username==="admin");
-  const byName=new Map(oldUsers.map(u=>[String(u.name||"").replace(/\\s*\\([^)]*\\)\\s*$/,"").trim().toLocaleLowerCase("tr-TR"),u]));
-  const wanted=[
-    ["Ahmet (Garson)","ahmet","WAITER"],["Mehmet (Garson)","mehmet","WAITER"],
-    ["Ayşe (Garson)","ayse","WAITER"],["Fuat (Garson)","fuat","WAITER"],
-    ["Yaren (Barista)","yaren","BARISTA"],["Buse (Barista)","buse","BARISTA"],
-    ["Efe (Kasa)","efe","CASHIER"]
-  ];
-  let nextId=Math.max(0,...oldUsers.map(u=>Number(u.id)||0),...defaultDB.users.map(u=>u.id))+1;
-  const staff=wanted.map(([display,username,role],idx)=>{
-    const base=display.replace(/\\s*\\([^)]*\\)\\s*$/,"").trim().toLocaleLowerCase("tr-TR");
-    const prior=byName.get(base);
-    return {id:prior?.id ?? nextId++,name:display,username,password:prior?.password||"1234",role,active:prior?.active!==false};
-  });
-  const adminUser=admin?{...admin,name:"Admin",username:"admin",role:"ADMIN",active:true}:{id:nextId++,name:"Admin",username:"admin",password:"1234",role:"ADMIN",active:true};
-  db.users=[...staff,adminUser];
-  db.staffV6=true;
-}
+let db=normalizeDb(JSON.parse(savedRaw||"null"));
 let serverSyncEnabled=location.protocol!=="file:";
 let saving=false;
 let commitQueue=Promise.resolve();
@@ -129,7 +141,7 @@ async function doCommit(fn,describe){
     if(r.status===409){
      if(attempt<7)await new Promise(res=>setTimeout(res,80+Math.random()*220));
      const fresh=await fetchLatest();
-     if(fresh)db=fresh;
+     if(fresh)db=normalizeDb(fresh);
      continue;
     }
     const res=await r.json();
@@ -141,6 +153,9 @@ async function doCommit(fn,describe){
  }finally{saving=false}
 }
 function money(n){return Number(n||0).toFixed(2)+" TL"}
+function stockById(id){return db.stock.find(s=>s.id===id)}
+function productCost(p){if(!p||!p.recipe||!p.recipe.length)return null;let total=0;for(const r of p.recipe){const s=stockById(r.stockId);if(!s)return null;total+=Number(r.amount||0)*Number(s.costPerUnit||0)}return total}
+function allProducts(){return db.cats.flatMap(c=>c.products.map(p=>({...p,cat:c.id})))}
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
 function current(){let id=localStorage.getItem("cafeos_user");return db.users.find(u=>u.id==id&&u.active)||null}
 let user=current(),view=user?(user.role==="ADMIN"?"dashboard":user.role==="BARISTA"?"barista":user.role==="CASHIER"?"cashier":"tables"):"login",selectedTable=null,selectedStaff=null,cart=[],cat=0,toastTimer=null,seenOrderIds=new Set();
@@ -151,7 +166,7 @@ function outstandingItems(o){return o.items.map((i,idx)=>({...i,index:idx,remain
 function outstandingTotal(o){return outstandingItems(o).reduce((s,i)=>s+i.remaining*i.price,0)}
 function orderDetail(id){const o=db.orders.find(x=>x.id===id);if(!o)return;let d=document.createElement("div");d.className="modal";d.innerHTML=`<div class="modalbox"><div class="modalhead"><h3>Masa ${o.tableId} · Sipariş #${o.id}</h3><button class="close">✕</button></div><p style="color:#64748b">${new Date(o.created).toLocaleString("tr-TR")} · ${esc(db.users.find(u=>u.id===o.waiterId)?.name||"Garson")}</p><div class="checklist">${o.items.map(i=>`<div class="check"><span><b>${i.qty}× ${esc(i.name)}</b><small>${i.mods?.length?i.mods.map(m=>esc(m.name)).join(", "):""}${i.note?" · "+esc(i.note):""}</small></span><strong>${money(i.price*i.qty)}</strong></div>`).join("")}</div><div class="total"><span>Toplam</span><b>${money(o.total)}</b></div></div>`;document.body.appendChild(d);d.querySelector(".close").onclick=()=>d.remove()}
 function logout(){localStorage.removeItem("cafeos_user");user=null;view="login";render()}
-function navItems(){if(user.role==="ADMIN")return [["dashboard","▦ Genel Bakış"],["tables","▦ Masalar"],["barista","☕ Barista"],["cashier","▣ Kasa"],["menu","☕ Menü"],["users","♙ Personel"],["settings","⚙ Ayarlar"]];if(user.role==="VIEWER")return [["dashboard","▦ Genel Bakış"],["tables","▦ Masalar"],["barista","☕ Barista"],["cashier","▣ Kasa"],["menu","☕ Menü"],["settings","⚙ Ayarlar"]];if(user.role==="BARISTA")return [["barista","☕ Siparişler"],["settings","⚙ Ayarlar"]];if(user.role==="CASHIER")return [["cashier","▣ Kasa"],["settings","⚙ Ayarlar"]];return [["tables","▦ Masalar"],["settings","⚙ Ayarlar"]]}
+function navItems(){if(user.role==="ADMIN")return [["dashboard","▦ Genel Bakış"],["tables","▦ Masalar"],["barista","☕ Barista"],["cashier","▣ Kasa"],["menu","☕ Menü"],["stock","📦 Stok Takip"],["users","♙ Personel"],["settings","⚙ Ayarlar"]];if(user.role==="VIEWER")return [["dashboard","▦ Genel Bakış"],["tables","▦ Masalar"],["barista","☕ Barista"],["cashier","▣ Kasa"],["menu","☕ Menü"],["stock","📦 Stok Takip"],["settings","⚙ Ayarlar"]];if(user.role==="BARISTA")return [["barista","☕ Siparişler"],["settings","⚙ Ayarlar"]];if(user.role==="CASHIER")return [["cashier","▣ Kasa"],["settings","⚙ Ayarlar"]];return [["tables","▦ Masalar"],["settings","⚙ Ayarlar"]]}
 function page(){
  if(view==="dashboard")return dashboard();
  if(view==="tables")return tables();
@@ -159,6 +174,7 @@ function page(){
  if(view==="barista")return barista();
  if(view==="cashier")return cashier();
  if(view==="menu")return menu();
+ if(view==="stock")return stockPage();
  if(view==="users")return users();
  if(view==="staffdetail")return staffDetail();
  if(view==="settings")return settings();
@@ -175,7 +191,7 @@ function render(){
 function loginHTML(){return `<div class="login"><form class="loginbox" id="loginForm"><div style="text-align:center;font-size:42px">☕</div><h1>CafePOS</h1><p>Kafe sipariş ve operasyon sistemi</p><div class="field"><label>Kullanıcı adı</label><input id="loginUser" autocomplete="username" placeholder="kullanıcı adı" required></div><div class="field"><label>Şifre / PIN</label><input id="loginPass" type="password" autocomplete="current-password" placeholder="şifre" required></div><label class="remember"><input id="remember" type="checkbox"> Beni hatırla</label><button class="primary full">Giriş Yap</button></form></div>`}
 function bindLogin(){document.getElementById("loginForm").onsubmit=e=>{e.preventDefault();let u=db.users.find(x=>x.username.toLowerCase()===document.getElementById("loginUser").value.trim().toLowerCase()&&x.password===document.getElementById("loginPass").value&&x.active);if(!u)return alert("Kullanıcı adı veya şifre hatalı.");user=u;if(document.getElementById("remember").checked)localStorage.setItem("cafeos_user",u.id);view=u.role==="ADMIN"?"dashboard":u.role==="VIEWER"?"dashboard":u.role==="BARISTA"?"barista":u.role==="CASHIER"?"cashier":"tables";render()}}
 function title(t,s){return `<div class="title"><h1>${t}</h1><p>${s}</p></div>`}
-function dashboard(){let done=db.orders.filter(o=>o.status==="COMPLETED"),revenue=done.reduce((s,o)=>s+Number(o.total||0),0),today=new Date().toDateString(),todayOrders=done.filter(o=>new Date(o.completed||o.created).toDateString()===today),todayRevenue=todayOrders.reduce((s,o)=>s+Number(o.total||0),0),counts={};done.flatMap(o=>o.items).forEach(i=>counts[i.name]=(counts[i.name]||0)+i.qty);let best=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5),recent=db.orders.slice().sort((a,b)=>b.created-a.created).slice(0,10);return title("Genel Bakış","CafePOS operasyon özeti")+`<div class="gridstats"><div class="stat"><span>Masalar</span><b>${db.tables.length}</b></div><div class="stat"><span>Aktif Hesap</span><b>${activeOrders().length}</b></div><div class="stat"><span>Bugünkü Ciro</span><b>${money(todayRevenue)}</b></div><div class="stat"><span>Toplam Ciro</span><b>${money(revenue)}</b></div></div><section class="panel" style="margin-top:15px"><h3>En Çok Satanlar</h3>${best.map(x=>`<div class="row"><span>${esc(x[0])}</span><b>${x[1]} adet</b></div>`).join("")||`<div class="empty">Henüz tamamlanmış sipariş yok.</div>`}</section><section class="panel" style="margin-top:15px"><div class="row"><span><h3 style="margin:0">Son Siparişler</h3><small>Detaydan ürünleri ve sipariş akışını görebilirsin.</small></span></div>${recent.map(o=>`<div class="row"><span><b>#${o.id} · Masa ${o.tableId}</b><small>${new Date(o.created).toLocaleString("tr-TR")}</small></span><strong>${money(o.total)}</strong><span style="display:flex;gap:7px;align-items:center"><span class="badge">${o.status}</span><button class="secondary" data-orderdetail="${o.id}">Detaylar</button></span></div>`).join("")||`<div class="empty">Henüz sipariş yok.</div>`}</section><section class="panel" style="margin-top:15px"><h3>Son İşlemler</h3>${db.audit.slice().sort((a,b)=>b.at-a.at).slice(0,8).map(a=>`<div class="row"><span><b>${esc(a.action)}</b><small>${esc(a.userName)} · ${new Date(a.at).toLocaleString("tr-TR")}${a.details?" · "+esc(a.details):""}</small></span></div>`).join("")||`<div class="empty">Henüz işlem kaydı yok.</div>`}</section>`}
+function dashboard(){let done=db.orders.filter(o=>o.status==="COMPLETED"),revenue=done.reduce((s,o)=>s+Number(o.total||0),0),today=new Date().toDateString(),todayOrders=done.filter(o=>new Date(o.completed||o.created).toDateString()===today),todayRevenue=todayOrders.reduce((s,o)=>s+Number(o.total||0),0),counts={};done.flatMap(o=>o.items).forEach(i=>counts[i.name]=(counts[i.name]||0)+i.qty);let best=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5),recent=db.orders.slice().sort((a,b)=>b.created-a.created).slice(0,10);let productMap=new Map(allProducts().map(p=>[p.id,p])),recipedCount=allProducts().filter(p=>p.recipe&&p.recipe.length).length,todayCost=0,todayCostedQty=0,todaySoldQty=0;todayOrders.flatMap(o=>o.items).forEach(i=>{todaySoldQty+=i.qty;const p=productMap.get(i.productId),c=p?productCost(p):null;if(c!=null){todayCost+=c*i.qty;todayCostedQty+=i.qty}});let todayProfit=todayRevenue-todayCost,lowStock=db.stock.filter(s=>Number(s.qty)<=Number(s.lowThreshold||0));return title("Genel Bakış","CafePOS operasyon özeti")+`<div class="gridstats"><div class="stat"><span>Masalar</span><b>${db.tables.length}</b></div><div class="stat"><span>Aktif Hesap</span><b>${activeOrders().length}</b></div><div class="stat"><span>Bugünkü Ciro</span><b>${money(todayRevenue)}</b></div><div class="stat"><span>Toplam Ciro</span><b>${money(revenue)}</b></div><div class="stat"><span>Bugünkü Tahmini Maliyet</span><b>${money(todayCost)}</b></div><div class="stat"><span>Bugünkü Tahmini Kâr</span><b>${money(todayProfit)}</b></div></div>${recipedCount===0?`<div class="notice" style="margin-top:14px"><strong>Maliyet takibi kapalı</strong>Henüz hiçbir üründe reçete (malzeme) tanımlanmadı, bu yüzden maliyet/kâr rakamları 0 görünüyor. Stok Takip'ten stok kalemi ekleyip Menü'den ürünlere reçete bağlayabilirsin.</div>`:todayCostedQty<todaySoldQty?`<div class="notice" style="margin-top:14px"><strong>Kısmi maliyet takibi</strong>Bugün satılan ${todaySoldQty} üründen sadece ${todayCostedQty} tanesinin reçetesi var; maliyet/kâr rakamları sadece onları kapsıyor.</div>`:""}${lowStock.length?`<div class="notice" style="margin-top:14px;background:#fef3c7;border-color:#fde68a;color:#92400e"><strong>Düşük stok</strong> ${lowStock.map(s=>esc(s.name)).join(", ")} — Stok Takip'ten kontrol et.</div>`:""}<section class="panel" style="margin-top:15px"><h3>En Çok Satanlar</h3>${best.map(x=>`<div class="row"><span>${esc(x[0])}</span><b>${x[1]} adet</b></div>`).join("")||`<div class="empty">Henüz tamamlanmış sipariş yok.</div>`}</section><section class="panel" style="margin-top:15px"><div class="row"><span><h3 style="margin:0">Son Siparişler</h3><small>Detaydan ürünleri ve sipariş akışını görebilirsin.</small></span></div>${recent.map(o=>`<div class="row"><span><b>#${o.id} · Masa ${o.tableId}</b><small>${new Date(o.created).toLocaleString("tr-TR")}</small></span><strong>${money(o.total)}</strong><span style="display:flex;gap:7px;align-items:center"><span class="badge">${o.status}</span><button class="secondary" data-orderdetail="${o.id}">Detaylar</button></span></div>`).join("")||`<div class="empty">Henüz sipariş yok.</div>`}</section><section class="panel" style="margin-top:15px"><h3>Son İşlemler</h3>${db.audit.slice().sort((a,b)=>b.at-a.at).slice(0,8).map(a=>`<div class="row"><span><b>${esc(a.action)}</b><small>${esc(a.userName)} · ${new Date(a.at).toLocaleString("tr-TR")}${a.details?" · "+esc(a.details):""}</small></span></div>`).join("")||`<div class="empty">Henüz işlem kaydı yok.</div>`}</section>`}
 function tables(){return title("Masalar",user.role==="ADMIN"?"Masa sayısını ve açık hesapları yönet":"Sipariş almak veya açık hesaba ürün eklemek için masa seç")+(user.role==="ADMIN"?`<section class="panel" style="margin-bottom:15px"><div class="row"><span><b>Masa Yönetimi</b><small>${db.tables.length} aktif masa</small></span><span style="display:flex;gap:8px"><button class="secondary" id="removeTable">− Masa Sil</button><button class="primary" id="addTable">＋ Masa Ekle</button></span></div></section>`:"")+`<div class="tables">${db.tables.map(t=>{let o=tableOrder(t.id);return `<button class="table ${o?"busy":"free"}" data-table="${t.id}"><b>Masa ${t.no}</b><strong>${o?money(outstandingTotal(o)):"Boş"}</strong><small>${o?"Açık hesap · ürün ekle":"Sipariş al"}</small></button>`}).join("")}</div>`}
 function order(){
  let products=db.cats.flatMap(c=>c.products.map(p=>({...p,cat:c.id}))).filter(p=>!cat||p.cat==cat),
@@ -190,7 +206,65 @@ function order(){
 }
 function barista(){let open=activeOrders().map(o=>({...o,pending:o.items.filter(i=>i.status!=="READY")})).filter(o=>o.pending.length);return title("Barista / Mutfak","Bekleyen ürünleri hazırla. Hazır olan ürünler kuyruktan çıkar, kasa hesabı açık kalır.")+`<div class="notice"><strong>🖨 Yazıcı akışı</strong>Yeni siparişlerde yalnızca bekleyen ürünlerin fişi basılır. Gerçek termal yazıcı için yazıcı ajanı kullanılabilir.</div>`+open.map(o=>`<section class="panel ticket" id="ticket-${o.id}"><div class="row"><span><b>MASA ${o.tableId} · #${o.id}</b><small>${new Date(o.created).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"})} · ${esc(db.users.find(u=>u.id===o.waiterId)?.name||"Garson")}</small></span><div class="ticket-actions"><button class="secondary" data-print="${o.id}">🖨 Fiş Yazdır</button><button class="success" data-allready="${o.id}">✓ Tümünü Hazır</button></div></div>${o.pending.map(i=>{const n=o.items.indexOf(i);return `<div class="row"><span><b>${i.qty}× ${esc(i.name)}</b><small>${i.mods?.length?"+"+i.mods.map(m=>esc(m.name)).join(" · "):""}${i.note?" · NOT: "+esc(i.note):""}</small></span><span style="display:flex;align-items:center;gap:8px"><span class="badge waiting">WAITING</span><button class="success" style="padding:6px 9px" data-ready="${o.id}" data-item="${n}">Hazır</button></span></div>`}).join("")}</section>`).join("")||`<div class="empty">Bekleyen sipariş yok.</div>`}
 function cashier(){let open=activeOrders().slice().sort((a,b)=>(db.tables.find(t=>t.id===a.tableId)?.no||0)-(db.tables.find(t=>t.id===b.tableId)?.no||0)),total=open.reduce((s,o)=>s+outstandingTotal(o),0);return title("Kasa","Hesabını ödemek/kapatmak istediğin masayı seç")+`<div class="gridstats"><div class="stat"><span>Aktif Hesap</span><b>${open.length}</b></div><div class="stat"><span>Ödenecek Tutar</span><b>${money(total)}</b></div></div>`+(open.length?`<div class="tables">${open.map(o=>{let t=db.tables.find(x=>x.id===o.tableId);return `<button class="table busy" data-cashieropen="${o.id}"><b>Masa ${t?t.no:o.tableId}</b><strong>${money(outstandingTotal(o))}</strong><small>${o.items.map(i=>{let r=i.qty-(i.paidQty||0);return r>0?r+"× "+esc(i.name):""}).filter(Boolean).join(", ")||"Ödeme tamamlanıyor"}</small></button>`}).join("")}</div>`:`<div class="empty">Açık hesap yok.</div>`)}
-function menu(){if(user.role!=="ADMIN"&&user.role!=="VIEWER")return `<div class="empty">Bu bölümü yalnızca admin kullanabilir.</div>`;let mods=db.modifiers||[];return title("Ürünler","Ürün, kategori, fiyat ve sipariş ekstralarını yönet")+`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:15px"><button type="button" class="primary" id="addProduct">＋ Ürün Ekle</button><button type="button" class="secondary" id="addCat">＋ Kategori Ekle</button></div>`+db.cats.map(c=>`<section class="panel" style="margin-bottom:12px"><div class="row"><h3 style="margin:0">${esc(c.name)}</h3><span><button type="button" class="secondary" data-editcat="${c.id}">Kategori Düzenle</button> <button type="button" class="danger" data-deletecat="${c.id}">Sil</button></span></div>${c.products.map(p=>`<div class="row"><span><b>${esc(p.name)}</b><small>${money(p.price)}</small></span><span style="display:flex;gap:7px"><button type="button" class="secondary" data-edit="${p.id}">Düzenle</button><button type="button" class="danger" data-delete="${p.id}">Sil</button></span></div>`).join("")||`<small>Bu kategoride ürün yok.</small>`}</section>`).join("")+`<section class="panel" style="margin-top:15px"><div class="row"><span><h3 style="margin:0">Ürün Ekstraları</h3><small>Garson sipariş alırken ürün seçtiğinde burada tanımlı ekstraları görecek.</small></span><button type="button" class="primary" id="addModifier">＋ Ekstra Ekle</button></div>${mods.map(m=>`<div class="row"><span><b>${esc(m.name)} · +${money(m.price)}</b><small>${m.categoryIds.map(id=>esc(db.cats.find(c=>c.id===id)?.name||"")).filter(Boolean).join(", ")||"Kategori seçilmedi"}</small></span><span style="display:flex;gap:7px"><span class="badge ${m.active?"ready":""}">${m.active?"AKTİF":"PASİF"}</span><button type="button" class="secondary" data-editmod="${m.id}">Düzenle</button><button type="button" class="danger" data-deletemod="${m.id}">Sil</button></span></div>`).join("")||`<div class="empty">Henüz ekstra tanımlanmadı.</div>`}</section>`}
+function menu(){if(user.role!=="ADMIN"&&user.role!=="VIEWER")return `<div class="empty">Bu bölümü yalnızca admin kullanabilir.</div>`;let mods=db.modifiers||[];return title("Ürünler","Ürün, kategori, fiyat ve sipariş ekstralarını yönet")+`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:15px"><button type="button" class="primary" id="addProduct">＋ Ürün Ekle</button><button type="button" class="secondary" id="addCat">＋ Kategori Ekle</button></div>`+db.cats.map(c=>`<section class="panel" style="margin-bottom:12px"><div class="row"><h3 style="margin:0">${esc(c.name)}</h3><span><button type="button" class="secondary" data-editcat="${c.id}">Kategori Düzenle</button> <button type="button" class="danger" data-deletecat="${c.id}">Sil</button></span></div>${c.products.map(p=>{const cost=productCost(p);return `<div class="row"><span><b>${esc(p.name)}</b><small>${money(p.price)}${cost!=null?` · maliyet ${money(cost)} · kâr ${money(p.price-cost)}`:p.recipe&&p.recipe.length?" · reçetedeki bir stok kalemi silinmiş":""}</small></span><span style="display:flex;gap:7px"><button type="button" class="secondary" data-edit="${p.id}">Düzenle</button><button type="button" class="danger" data-delete="${p.id}">Sil</button></span></div>`}).join("")||`<small>Bu kategoride ürün yok.</small>`}</section>`).join("")+`<section class="panel" style="margin-top:15px"><div class="row"><span><h3 style="margin:0">Ürün Ekstraları</h3><small>Garson sipariş alırken ürün seçtiğinde burada tanımlı ekstraları görecek.</small></span><button type="button" class="primary" id="addModifier">＋ Ekstra Ekle</button></div>${mods.map(m=>`<div class="row"><span><b>${esc(m.name)} · +${money(m.price)}</b><small>${m.categoryIds.map(id=>esc(db.cats.find(c=>c.id===id)?.name||"")).filter(Boolean).join(", ")||"Kategori seçilmedi"}</small></span><span style="display:flex;gap:7px"><span class="badge ${m.active?"ready":""}">${m.active?"AKTİF":"PASİF"}</span><button type="button" class="secondary" data-editmod="${m.id}">Düzenle</button><button type="button" class="danger" data-deletemod="${m.id}">Sil</button></span></div>`).join("")||`<div class="empty">Henüz ekstra tanımlanmadı.</div>`}</section>`}
+function stockUnitLabel(u){return u==="kg"?"kg":u==="gr"?"gr":u==="lt"?"lt":u==="ml"?"ml":"adet"}
+function stockPage(){
+ if(user.role!=="ADMIN"&&user.role!=="VIEWER")return `<div class="empty">Bu bölümü yalnızca admin kullanabilir.</div>`;
+ const totalValue=db.stock.reduce((s,x)=>s+Number(x.qty||0)*Number(x.costPerUnit||0),0);
+ const lowCount=db.stock.filter(s=>Number(s.qty)<=Number(s.lowThreshold||0)).length;
+ return title("Stok Takip","Hammadde/malzeme envanterini ve gerçek maliyetleri yönet")+
+  `<div class="gridstats"><div class="stat"><span>Stok Kalemi</span><b>${db.stock.length}</b></div><div class="stat"><span>Düşük Stok</span><b>${lowCount}</b></div><div class="stat"><span>Envanter Değeri</span><b>${money(totalValue)}</b></div></div>`+
+  `<section class="panel" style="margin-top:15px"><div class="row"><span><b>Stok Kalemleri</b><small>Bir üründe ne kadar malzeme harcandığını Menü'den ürünü düzenleyerek "Reçete" bölümünden bağlayabilirsin. Sipariş gönderildiğinde stok otomatik düşer.</small></span><button type="button" class="primary" id="addStock">＋ Stok Kalemi Ekle</button></div>`+
+  (db.stock.length?db.stock.map(s=>{const low=Number(s.qty)<=Number(s.lowThreshold||0);return `<div class="row"><span><b>${esc(s.name)}</b><small>${Number(s.qty).toLocaleString("tr-TR")} ${esc(stockUnitLabel(s.unit))} · birim maliyet ${money(s.costPerUnit)}${s.lowThreshold?" · eşik "+s.lowThreshold+" "+esc(stockUnitLabel(s.unit)):""}</small></span><span style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">${low?`<span class="badge" style="background:#fee2e2;color:#991b1b">DÜŞÜK STOK</span>`:""}<button type="button" class="secondary" data-stockmove="${s.id}">Stok Gir/Çık</button><button type="button" class="secondary" data-editstock="${s.id}">Düzenle</button><button type="button" class="danger" data-deletestock="${s.id}">Sil</button></span></div>`}).join(""):`<div class="empty">Henüz stok kalemi eklenmedi.</div>`)+
+  `</section>`;
+}
+function stockModal(id){
+ let s=id?db.stock.find(x=>x.id===id):null,d=document.createElement("div");d.className="modal";
+ d.innerHTML=`<div class="modalbox"><div class="modalhead"><h3>${s?"Stok Kalemi Düzenle":"Stok Kalemi Ekle"}</h3><button type="button" class="close">✕</button></div><form id="stockForm"><div class="formgrid">
+ <div class="field"><label>Ad</label><input id="sn" value="${s?esc(s.name):""}" required></div>
+ <div class="field"><label>Birim</label><select id="su"><option value="adet" ${!s||s.unit==="adet"?"selected":""}>adet</option><option value="kg" ${s?.unit==="kg"?"selected":""}>kg</option><option value="gr" ${s?.unit==="gr"?"selected":""}>gr</option><option value="lt" ${s?.unit==="lt"?"selected":""}>lt</option><option value="ml" ${s?.unit==="ml"?"selected":""}>ml</option></select></div>
+ ${s?"":`<div class="field"><label>Başlangıç Miktarı</label><input id="sq" type="number" min="0" step="0.01" value="0" required></div>`}
+ <div class="field"><label>Birim Maliyet (TL)</label><input id="sc" type="number" min="0" step="0.01" value="${s?s.costPerUnit:0}" required></div>
+ <div class="field"><label>Düşük Stok Eşiği</label><input id="sl" type="number" min="0" step="0.01" value="${s?s.lowThreshold||0:0}"></div>
+ </div><button type="submit" class="primary full" style="margin-top:15px">${s?"Kaydet":"Ekle"}</button></form></div>`;
+ document.body.appendChild(d);d.querySelector(".close").onclick=()=>d.remove();
+ d.querySelector("form").onsubmit=e=>{
+  e.preventDefault();
+  let name=document.getElementById("sn").value.trim(),unit=document.getElementById("su").value,cost=Number(document.getElementById("sc").value),low=Number(document.getElementById("sl").value)||0;
+  let initialQty=s?0:(Number(document.getElementById("sq")?.value)||0);
+  const sid=s?s.id:null;
+  commit(()=>{
+   if(sid!=null){let fs=db.stock.find(x=>x.id===sid);if(fs){fs.name=name;fs.unit=unit;fs.costPerUnit=cost;fs.lowThreshold=low}}
+   else db.stock.push({id:db.nextStock++,name,unit,qty:initialQty,costPerUnit:cost,lowThreshold:low});
+  }, {action:s?"Stok kalemi güncellendi":"Stok kalemi eklendi",details:name});
+  d.remove();render();notify(s?"Stok kalemi güncellendi.":"Stok kalemi eklendi.")
+ }
+}
+function stockMoveModal(id){
+ let s=db.stock.find(x=>x.id===id);if(!s)return;
+ let d=document.createElement("div");d.className="modal";
+ d.innerHTML=`<div class="modalbox"><div class="modalhead"><h3>${esc(s.name)} · Stok Hareketi</h3><button type="button" class="close">✕</button></div><p style="color:#64748b">Mevcut: ${Number(s.qty).toLocaleString("tr-TR")} ${esc(stockUnitLabel(s.unit))}</p><form id="moveForm"><div class="formgrid"><div class="field"><label>Yön</label><select id="mvdir"><option value="in">Stok Girişi (+)</option><option value="out">Stok Çıkışı (−)</option></select></div><div class="field"><label>Miktar (${esc(stockUnitLabel(s.unit))})</label><input id="mvqty" type="number" min="0" step="0.01" required></div></div><div class="field" style="margin-top:12px"><label>Not (opsiyonel)</label><input id="mvnote" placeholder="Örn: tedarikçiden alım, fire, sayım düzeltmesi"></div><button type="submit" class="primary full" style="margin-top:15px">Kaydet</button></form></div>`;
+ document.body.appendChild(d);d.querySelector(".close").onclick=()=>d.remove();
+ d.querySelector("form").onsubmit=e=>{
+  e.preventDefault();
+  const dir=document.getElementById("mvdir").value,amount=Number(document.getElementById("mvqty").value)||0,note=document.getElementById("mvnote").value.trim();
+  if(amount<=0)return;
+  const sid=s.id,delta=dir==="in"?amount:-amount,unitLabel=stockUnitLabel(s.unit),name=s.name;
+  commit(()=>{let fs=db.stock.find(x=>x.id===sid);if(fs)fs.qty=Math.max(0,Number(fs.qty||0)+delta)},
+   {action:dir==="in"?"Stok girişi":"Stok çıkışı",details:name+" · "+amount+" "+unitLabel+(note?" · "+note:"")});
+  d.remove();render();notify("Stok hareketi kaydedildi.")
+ }
+}
+function deleteStock(id){
+ let s=db.stock.find(x=>x.id===id);if(!s)return;
+ const usedBy=allProducts().filter(p=>p.recipe&&p.recipe.some(r=>r.stockId===id));
+ if(usedBy.length)return alert("Bu stok kalemi şu ürünlerin reçetesinde kullanılıyor: "+usedBy.map(p=>p.name).join(", ")+". Önce reçetelerden çıkar.");
+ confirmModal("Stok Kalemi Sil",s.name+" silinecek.","Sil").then(ok=>{
+  if(!ok)return;
+  commit(()=>{db.stock=db.stock.filter(x=>x.id!==id)},{action:"Stok kalemi silindi",details:s.name});
+  render();notify("Stok kalemi silindi.")
+ });
+}
 function roleLabel(role){return role==="WAITER"?"Garson":role==="BARISTA"?"Barista":role==="CASHIER"?"Kasa":role==="VIEWER"?"İzleyici":"Admin"}
 function roleIcon(role){return role==="WAITER"?"🧑‍🍳":role==="BARISTA"?"☕":role==="CASHIER"?"💳":role==="VIEWER"?"👁":"👑"}
 function users(){
@@ -266,6 +340,10 @@ function bindPage(){
  let ac=document.getElementById("addCat");if(ac)ac.onclick=()=>categoryModal();
  let au=document.getElementById("addUser");if(au)au.onclick=()=>userModal();
  let am=document.getElementById("addModifier");if(am)am.onclick=()=>modifierModal();
+ let ast=document.getElementById("addStock");if(ast)ast.onclick=()=>stockModal();
+ document.querySelectorAll("[data-editstock]").forEach(b=>b.onclick=()=>stockModal(Number(b.dataset.editstock)));
+ document.querySelectorAll("[data-stockmove]").forEach(b=>b.onclick=()=>stockMoveModal(Number(b.dataset.stockmove)));
+ document.querySelectorAll("[data-deletestock]").forEach(b=>b.onclick=()=>deleteStock(Number(b.dataset.deletestock)));
  document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>productModal(Number(b.dataset.edit)));
  document.querySelectorAll("[data-delete]").forEach(b=>b.onclick=()=>deleteProduct(Number(b.dataset.delete)));
  document.querySelectorAll("[data-editcat]").forEach(b=>b.onclick=()=>categoryModal(Number(b.dataset.editcat)));
@@ -282,7 +360,8 @@ function productModal(editId,productId){
  let originalCat=found?db.cats.find(c=>c.products.some(p=>p.id===found.id))?.id:db.cats[0]?.id;
  let cats=db.cats.map(c=>`<option value="${c.id}" ${originalCat==c.id?"selected":""}>${esc(c.name)}</option>`).join("");
  let available=(db.modifiers||[]).filter(m=>m.active&&m.categoryIds.includes(Number(originalCat)));
- let d=document.createElement("div");d.className="modal";d.innerHTML=`<div class="modalbox"><div class="modalhead"><h3>${found?"Ürünü Düzenle":"Ürün Ekle"}</h3><button type="button" class="close">✕</button></div><form id="productForm"><div class="field"><label>Ürün adı</label><input id="pn" value="${found?esc(found.name):""}" required></div><div class="field"><label>Fiyat (TL)</label><input id="pp" type="number" min="0" step="0.01" value="${found?found.price:""}" required></div><div class="field"><label>Kategori</label><select id="pc">${cats}</select></div><button type="submit" class="primary full" style="margin-top:15px">${found?"Kaydet":"Ürünü Ekle"}</button></form><small style="display:block;color:#64748b;margin-top:10px">Ekstralar ürün sipariş edilirken seçilir; kategoriye göre otomatik gösterilir.</small></div>`;document.body.appendChild(d);d.querySelector(".close").onclick=()=>d.remove();d.querySelector("form").onsubmit=e=>{e.preventDefault();let name=document.getElementById("pn").value.trim(),price=Number(document.getElementById("pp").value),cid=Number(document.getElementById("pc").value);const foundId=found?found.id:null;commit(()=>{if(foundId!=null){let f=db.cats.flatMap(c=>c.products).find(p=>p.id===foundId);if(!f)return;f.name=name;f.price=price;let old=db.cats.find(c=>c.products.some(p=>p.id===foundId));if(old&&old.id!==cid){old.products=old.products.filter(p=>p.id!==foundId);let target=db.cats.find(c=>c.id===cid);if(target)target.products.push(f)}}else{let target=db.cats.find(c=>c.id===cid);if(target)target.products.push({id:db.nextProduct++,name,price})}});d.remove();render();notify(found?"Ürün güncellendi.":"Ürün eklendi.")}}
+ let recipeHtml=db.stock.length?`<label style="display:block;font-weight:800;margin:15px 0 7px">Reçete (bu üründe kullanılan malzemeler)</label><div class="checklist">${db.stock.map(s=>{const existing=(found?.recipe||[]).find(r=>r.stockId===s.id);return `<label class="check"><input type="checkbox" data-recipestock="${s.id}" ${existing?"checked":""}> <b>${esc(s.name)}</b><input type="number" min="0" step="0.001" placeholder="miktar (${esc(stockUnitLabel(s.unit))})" data-recipeamount="${s.id}" value="${existing?existing.amount:""}" style="width:130px;margin-left:auto;padding:7px;border:1px solid #cbd5e1;border-radius:7px"></label>`}).join("")}</div><small style="display:block;color:#64748b;margin:4px 0 0">Bu üründen 1 adet satıldığında yukarıdaki miktarlar stoktan otomatik düşer.</small>`:`<small style="display:block;color:#64748b;margin-top:10px">Henüz stok kalemi yok — Stok Takip'ten ekleyip buraya reçete bağlayabilirsin.</small>`;
+ let d=document.createElement("div");d.className="modal";d.innerHTML=`<div class="modalbox"><div class="modalhead"><h3>${found?"Ürünü Düzenle":"Ürün Ekle"}</h3><button type="button" class="close">✕</button></div><form id="productForm"><div class="field"><label>Ürün adı</label><input id="pn" value="${found?esc(found.name):""}" required></div><div class="field"><label>Fiyat (TL)</label><input id="pp" type="number" min="0" step="0.01" value="${found?found.price:""}" required></div><div class="field"><label>Kategori</label><select id="pc">${cats}</select></div>${recipeHtml}<button type="submit" class="primary full" style="margin-top:15px">${found?"Kaydet":"Ürünü Ekle"}</button></form><small style="display:block;color:#64748b;margin-top:10px">Ekstralar ürün sipariş edilirken seçilir; kategoriye göre otomatik gösterilir.</small></div>`;document.body.appendChild(d);d.querySelector(".close").onclick=()=>d.remove();d.querySelector("form").onsubmit=e=>{e.preventDefault();let name=document.getElementById("pn").value.trim(),price=Number(document.getElementById("pp").value),cid=Number(document.getElementById("pc").value);let recipe=[...d.querySelectorAll("[data-recipestock]:checked")].map(cb=>({stockId:Number(cb.dataset.recipestock),amount:Number(d.querySelector(`[data-recipeamount="${cb.dataset.recipestock}"]`).value)||0})).filter(r=>r.amount>0);const foundId=found?found.id:null;commit(()=>{if(foundId!=null){let f=db.cats.flatMap(c=>c.products).find(p=>p.id===foundId);if(!f)return;f.name=name;f.price=price;f.recipe=recipe;let old=db.cats.find(c=>c.products.some(p=>p.id===foundId));if(old&&old.id!==cid){old.products=old.products.filter(p=>p.id!==foundId);let target=db.cats.find(c=>c.id===cid);if(target)target.products.push(f)}}else{let target=db.cats.find(c=>c.id===cid);if(target)target.products.push({id:db.nextProduct++,name,price,recipe})}});d.remove();render();notify(found?"Ürün güncellendi.":"Ürün eklendi.")}}
 function deleteProduct(id){let p=db.cats.flatMap(c=>c.products).find(x=>x.id===id);if(!p)return;confirmModal("Ürün Sil",p.name+" ürünü silinecek.","Ürünü Sil").then(ok=>{if(!ok)return;commit(()=>{db.cats.forEach(c=>{c.products=c.products.filter(x=>x.id!==id)})},{action:"Ürün silindi",details:p.name});render();notify("Ürün silindi.")})}
 function addToCartWithOptions(p){
  let mods=(db.modifiers||[]).filter(m=>m.active&&m.categoryIds.includes(p.cat));
@@ -312,6 +391,12 @@ function sendOrder(){
   const newItems=items.map(i=>({...i,status:"WAITING",paidQty:0,batchId,sentAt:Date.now()}));
   if(o){o.items.push(...newItems);o.total+=total;o.kitchenCompleted=false}
   else db.orders.push({id:db.nextOrder++,tableId,waiterId,status:"ACTIVE",total,created:Date.now(),items:newItems,kitchenCompleted:false,payments:[]});
+  const products=allProducts();
+  newItems.forEach(i=>{
+   const p=products.find(x=>x.id===i.productId);
+   if(!p||!p.recipe)return;
+   p.recipe.forEach(r=>{const s=stockById(r.stockId);if(s)s.qty=Math.max(0,Number(s.qty||0)-Number(r.amount||0)*i.qty)});
+  });
  }, ()=>({action:wasExisting?"Ek sipariş gönderildi":"Sipariş oluşturuldu",details:"Masa "+tableId+" · "+money(total)}));
  cart=[];notify("Sipariş gönderildi. Mutfak fişi kuyruğa eklendi.");view="tables";selectedTable=null;render()
 }
@@ -352,7 +437,7 @@ function deleteUser(id){
 function modifierModal(id){
  let m=id?db.modifiers.find(x=>x.id===id):null,d=document.createElement("div");d.className="modal";d.innerHTML=`<div class="modalbox"><div class="modalhead"><h3>${m?"Ekstra Düzenle":"Ekstra Ekle"}</h3><button type="button" class="close">✕</button></div><form id="modForm"><div class="formgrid"><div class="field"><label>Ad</label><input id="mn" value="${m?esc(m.name):"Ekstra Shot"}" required></div><div class="field"><label>Ek fiyat (TL)</label><input id="mp" type="number" min="0" step=".01" value="${m?m.price:10}" required></div></div><label style="display:block;font-weight:800;margin:15px 0 7px">Hangi kategorilerde gösterilsin?</label><div class="checklist">${db.cats.map(c=>`<label class="check"><input type="checkbox" data-catmod="${c.id}" ${m?.categoryIds?.includes(c.id)?"checked":""}> ${esc(c.name)}</label>`).join("")}</div><label class="remember"><input id="ma" type="checkbox" ${!m||m.active?"checked":""}> Aktif</label><button class="primary full">Kaydet</button></form></div>`;document.body.appendChild(d);d.querySelector(".close").onclick=()=>d.remove();d.querySelector("form").onsubmit=e=>{e.preventDefault();let cats=[...d.querySelectorAll("[data-catmod]:checked")].map(x=>Number(x.dataset.catmod));let name=document.getElementById("mn").value.trim(),price=Number(document.getElementById("mp").value),active=document.getElementById("ma").checked;const mid=m?m.id:null;commit(()=>{if(mid!=null){let fm=db.modifiers.find(x=>x.id===mid);if(fm){fm.name=name;fm.price=price;fm.categoryIds=cats;fm.active=active}}else db.modifiers.push({id:db.nextModifier++,name,price,categoryIds:cats,active:true})});d.remove();render();notify("Ekstra kaydedildi.")}}
 function deleteModifier(id){confirmModal("Ekstra Sil","Bu ürün ekstrası silinecek.","Ekstrayı Sil").then(ok=>{if(!ok)return;commit(()=>{db.modifiers=db.modifiers.filter(x=>x.id!==id)},{action:"Ekstra silindi",details:"ID "+id});render()})}
-async function poll(){try{if(document.querySelector(".modal"))return;if(saving)return;let latest=null;if(serverSyncEnabled){const r=await fetch("/api/state",{cache:"no-store"});if(r.ok)latest=await r.json()}else{let raw=localStorage.getItem(KEY);if(raw)latest=JSON.parse(raw)}if(latest){if(serverSyncEnabled&&typeof latest.__v==="number"&&typeof db.__v==="number"&&latest.__v<db.__v)return;db=latest;let active=activeOrders();if(user){const fresh=db.users.find(x=>x.id===user.id&&x.active);if(!fresh){logout();return}user=fresh;if(user.role==="BARISTA"&&active.some(o=>!seenOrderIds.has(o.id)&&o.items.some(i=>i.status==="WAITING"))){notify("🔔 Yeni sipariş geldi! Fiş yazdırılmaya hazır.");render()}seenOrderIds=new Set(active.map(o=>o.id));if(view!=="login"&&document.visibilityState!=="hidden"&&!document.querySelector(".modal"))render()}}}catch(e){/* keep local state */}}
+async function poll(){try{if(document.querySelector(".modal"))return;if(saving)return;let latest=null;if(serverSyncEnabled){const r=await fetch("/api/state",{cache:"no-store"});if(r.ok)latest=await r.json()}else{let raw=localStorage.getItem(KEY);if(raw)latest=JSON.parse(raw)}if(latest){if(serverSyncEnabled&&typeof latest.__v==="number"&&typeof db.__v==="number"&&latest.__v<db.__v)return;db=normalizeDb(latest);let active=activeOrders();if(user){const fresh=db.users.find(x=>x.id===user.id&&x.active);if(!fresh){logout();return}user=fresh;if(user.role==="BARISTA"&&active.some(o=>!seenOrderIds.has(o.id)&&o.items.some(i=>i.status==="WAITING"))){notify("🔔 Yeni sipariş geldi! Fiş yazdırılmaya hazır.");render()}seenOrderIds=new Set(active.map(o=>o.id));if(view!=="login"&&document.visibilityState!=="hidden"&&!document.querySelector(".modal"))render()}}}catch(e){/* keep local state */}}
 setInterval(poll,1500);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)render()});
 poll();
