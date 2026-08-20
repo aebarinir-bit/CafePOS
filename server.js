@@ -10,6 +10,7 @@ const {
     ensureCafeStateRow,
     createTenant,
     getTenantByUsername,
+    getTenantBySlug,
     listTenants,
     updateTenant,
     upsertQrToken,
@@ -184,6 +185,40 @@ app.patch("/api/platform/tenants/:slug", requirePlatformAuth, async (req, res) =
     }
 });
 
+// Bir kafenin personel listesine admin ekler ya da (kullanıcı adı zaten
+// varsa) mevcut hesabı admin yapıp şifresini değiştirir. "Kilitli kalmış"
+// bir kafeye (örn. kurulurken admin bilgileri unutulmuş/yanlış girilmiş)
+// platform sahibinin müdahale edebilmesi için — kurtarma amaçlı.
+app.post("/api/platform/tenants/:slug/reset-admin", requirePlatformAuth, async (req, res) => {
+    try {
+        const { name, username, password } = req.body || {};
+        if (!name || !username || !password) return res.status(400).json({ error: "missing_fields" });
+        const slug = req.params.slug;
+        const state = await getState(slug);
+        if (!state) return res.status(404).json({ error: "not_found" });
+        const data = state.data;
+        if (!Array.isArray(data.users)) data.users = [];
+        const existing = data.users.find((u) => u.username === username);
+        if (existing) {
+            existing.name = name;
+            existing.password = password;
+            existing.role = "ADMIN";
+            existing.active = true;
+        } else {
+            const nextId = Math.max(0, ...data.users.map((u) => Number(u.id) || 0)) + 1;
+            data.users.push({ id: nextId, name, username, password, role: "ADMIN", active: true });
+        }
+        const newVersion = await saveState(data, state.version, slug);
+        if (newVersion === null) {
+            return res.status(409).json({ error: "conflict", message: "Az önce başka bir işlem oldu, tekrar dener misin?" });
+        }
+        res.json({ ok: true });
+    } catch (error) {
+        console.error("Admin sıfırlama hatası:", error);
+        res.status(500).json({ error: "server_error" });
+    }
+});
+
 // ---------------------------------------------------------------------
 // Kafe (kiracı) girişi
 // ---------------------------------------------------------------------
@@ -217,8 +252,10 @@ app.post("/api/tenant-logout", (req, res) => {
 app.get("/api/state", requireTenantAuth, async (req, res) => {
     try {
         const state = await getState(req.tenantSlug);
-        if (!state) return res.json({ initialized: false, __v: 0 });
-        res.json({ ...state.data, __v: state.version });
+        const tenant = await getTenantBySlug(req.tenantSlug);
+        const tenantName = tenant ? tenant.name : "";
+        if (!state) return res.json({ initialized: false, __v: 0, __tenantName: tenantName });
+        res.json({ ...state.data, __v: state.version, __tenantName: tenantName });
     } catch (error) {
         console.error("Veri okuma hatası:", error);
         res.status(500).json({
@@ -232,7 +269,7 @@ app.get("/api/state", requireTenantAuth, async (req, res) => {
 // hiçbir şeyin üzerine yazılmaz.
 app.post("/api/state", requireTenantAuth, async (req, res) => {
     try {
-        const { __v, ...data } = req.body;
+        const { __v, __tenantName, ...data } = req.body;
         const expectedVersion = Number(__v) || 0;
         const newVersion = await saveState(data, expectedVersion, req.tenantSlug);
 
